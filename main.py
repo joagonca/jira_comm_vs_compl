@@ -30,6 +30,7 @@ def jira_request(url, method='GET', data=None):
     }
 
     status = 0
+    error_count = 0
     response = None
 
     while status != 200:
@@ -43,8 +44,13 @@ def jira_request(url, method='GET', data=None):
 
         status = response.status_code
         if status != 200:
-            print(f"\rTimed out, sleeping for 30 seconds...", end="", flush=True)
+            error_count += 1
+            if error_count > 3:
+                response.raise_for_status()
+
+            print(f"\rErrored out, sleeping for 30 seconds...", end="", flush=True)
             time.sleep(30)
+            print(f"\r                                                             ", end="", flush=True)
 
     return response.json()
 
