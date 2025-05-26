@@ -71,12 +71,16 @@ def jira_request(url, method='GET', data=None):
 
     return response.json()
 
-def get_all_issues(project_key):
+def get_all_issues(project_key, skew):
     """Get all issues for a specific project"""
     global total_issues
 
     issues_combo = []
     issues_url = f'{JIRA_URL}/search'
+
+    skew_str = ""
+    if skew > 0:
+        skew_str = f" AND updated >= startOfMonth(-{skew-1})"
 
     start_at = 0
     total = 1
@@ -85,7 +89,7 @@ def get_all_issues(project_key):
         response = jira_request(issues_url,
                                 'POST',
                                 data={
-                                    'jql': f"project={project_key} AND Team in ({TEAMS_STRING}) AND (type=Story OR type=Defect OR type=Task) AND Sprint is not EMPTY",
+                                    'jql': f"project={project_key} AND Team in ({TEAMS_STRING}) AND (type=Story OR type=Defect OR type=Task) AND Sprint is not EMPTY{skew_str}",
                                     'maxResults': MAX_RESULTS,
                                     'startAt': start_at,
                                     'fields': [
@@ -199,6 +203,13 @@ parser.add_argument('-s', '--secret',
                     required=True,
                     help='file with your user and password information (1st line: user 2nd line: password)')
 
+parser.add_argument('-d', '--skew',
+                    dest='skew',
+                    default=0,
+                    type=int,
+                    required=False,
+                    help='define how far back in months you want to check (since two months ago: -2)')
+
 args = parser.parse_args()
 
 JIRA_URL = args.url
@@ -226,7 +237,7 @@ if existing_state.is_file():
 try:
     if state is None:
         print("Fetching issues...")
-        issues = get_all_issues(args.project)
+        issues = get_all_issues(args.project, args.skew)
         state = State(issues)
     else:
         issues = state.issues
