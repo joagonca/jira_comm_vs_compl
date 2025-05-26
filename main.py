@@ -48,7 +48,7 @@ def jira_request(url, method='GET', data=None):
             if error_count > 3:
                 response.raise_for_status()
 
-            print(f"\rErrored out, sleeping for 30 seconds...", end="", flush=True)
+            print(f"\rErrored out, sleeping for 30 seconds...                      ", end="", flush=True)
             time.sleep(30)
             print(f"\r                                                             ", end="", flush=True)
 
@@ -207,7 +207,7 @@ try:
     i = 0
     for issue in issues:
         i += 1
-#        print(f"\r{i}/{TOTAL_ISSUES}", end="", flush=True)
+        print(f"\rProgress: {i}/{TOTAL_ISSUES} | Valid: {DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT}", end="", flush=True)
         check_issue_resolution_in_sprint(issue)
     
     print()
