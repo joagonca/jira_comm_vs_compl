@@ -92,10 +92,14 @@ def parse_sprint_string(sprint_string):
             k, v = part.split('=', 1)
             info[k.strip()] = v.strip()
 
-    if 'startDate' in info:
-        info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
-    if 'endDate' in info:
-        info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
+    if info['state'] == "FUTURE":
+        info['startDate'] = info['endDate'] = None
+    else:
+        if 'startDate' in info:
+            info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
+        if 'endDate' in info:
+            info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
+
     return info
 
 def check_issue_resolution_in_sprint(issue):
@@ -124,24 +128,29 @@ def check_issue_resolution_in_sprint(issue):
     for t in transitions:
         ts = t["timestamp"].replace(tzinfo=None)
         sprint = next((s for s in parsed_sprints if s.get("startDate") and s.get("endDate") and s["startDate"] <= ts <= s["endDate"]), None)
+        t["state"] = sprint["state"] if sprint else None
         t["sprint"] = sprint["name"] if sprint else None
 
     start_sprint = ""
     end_sprint = ""
+    consider = False
     for t in transitions:
-#        print(f"{t['timestamp']} | {t['from']} ➜ {t['to']} | Sprint: {t['sprint']}")
         if t['to'] == "In Progress":
             start_sprint = t['sprint']
+            if t['state'] == "CLOSED":
+                consider = True
+
         if t['to'] == "Resolved":
             end_sprint = t['sprint']
+            consider = True
 
-    if start_sprint != "":
+    if start_sprint != "" and consider:
         if start_sprint == end_sprint:
             DELIVERED_IN_SPRINT += 1
         else:
             CARRYOVER_IN_SPRINT += 1
 
-    return False
+    return True
 
 parser = argparse.ArgumentParser(
     prog='jira_stats',
@@ -198,7 +207,7 @@ try:
     i = 0
     for issue in issues:
         i += 1
-        print(f"\r{i}/{TOTAL_ISSUES}", end="", flush=True)
+#        print(f"\r{i}/{TOTAL_ISSUES}", end="", flush=True)
         check_issue_resolution_in_sprint(issue)
     
     print()
