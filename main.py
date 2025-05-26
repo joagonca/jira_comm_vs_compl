@@ -4,6 +4,8 @@ Get completed vs. delivered
 
 import argparse
 from datetime import datetime
+from pathlib import Path
+import pickle
 import time
 import requests
 
@@ -19,9 +21,24 @@ TEAMS_STRING = ""
 
 SPRINT_CUSTOM_FIELD = "customfield_10000"
 
-DELIVERED_IN_SPRINT = 0
-CARRYOVER_IN_SPRINT = 0
-TOTAL_ISSUES = 0
+delivered_in_sprint = 0
+carryover_in_sprint = 0
+total_issues = 0
+parsed_issues = {}
+
+class State:
+    def __init__(self, issues):
+        self.issues = issues
+
+    def prepare_to_save(self):
+        self.parsed_issues = parsed_issues
+        self.delivered_in_sprint = delivered_in_sprint
+        self.carryover_in_sprint = carryover_in_sprint
+
+def persist_state(state):
+    state.prepare_to_save()
+    with open(".state", "wb") as f:
+        pickle.dump(state, f)
 
 def jira_request(url, method='GET', data=None):
     """Generic function to call JIRA APIs"""
@@ -56,7 +73,7 @@ def jira_request(url, method='GET', data=None):
 
 def get_all_issues(project_key):
     """Get all issues for a specific project"""
-    global TOTAL_ISSUES
+    global total_issues
 
     issues_combo = []
     issues_url = f'{JIRA_URL}/search'
@@ -81,7 +98,7 @@ def get_all_issues(project_key):
 
         issues_combo =  issues_combo + response['issues']
 
-    TOTAL_ISSUES = total
+    total_issues = total
     return issues_combo
 
 def parse_sprint_string(sprint_string):
@@ -104,8 +121,8 @@ def parse_sprint_string(sprint_string):
 
 def check_issue_resolution_in_sprint(issue):
     """Validates if issue was solved in the sprint"""
-    global DELIVERED_IN_SPRINT
-    global CARRYOVER_IN_SPRINT
+    global delivered_in_sprint
+    global carryover_in_sprint
 
     changelog_url = f'{JIRA_URL}/issue/{issue["key"]}?expand=changelog'
     changelog_response = jira_request(changelog_url)
@@ -146,9 +163,9 @@ def check_issue_resolution_in_sprint(issue):
 
     if start_sprint != "" and consider:
         if start_sprint == end_sprint:
-            DELIVERED_IN_SPRINT += 1
+            delivered_in_sprint += 1
         else:
-            CARRYOVER_IN_SPRINT += 1
+            carryover_in_sprint += 1
 
     return True
 
@@ -199,20 +216,41 @@ with open(args.secret, encoding='utf-8') as f:
 with open(args.teams, encoding='utf-8') as f:
     TEAMS_STRING = f.readline().strip()
 
+state = None
+
+existing_state = Path(".state")
+if existing_state.is_file():
+    with open(".state", "rb") as f:
+        state = pickle.load(f)
+
 try:
-    # Fetch all issues from the project
-    print("Fetching issues...")
-    issues = get_all_issues(args.project)
+    if state is None:
+        print("Fetching issues...")
+        issues = get_all_issues(args.project)
+        state = State(issues)
+    else:
+        issues = state.issues
+        total_issues = len(issues)
+        parsed_issues = state.parsed_issues
+        delivered_in_sprint = state.delivered_in_sprint
+        carryover_in_sprint = state.carryover_in_sprint
+        print("Loaded state!")
 
     i = 0
     for issue in issues:
         i += 1
-        print(f"\rProgress: {i}/{TOTAL_ISSUES} | Valid: {DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT}", end="", flush=True)
+        print(f"\rProgress: {i}/{total_issues} | Valid: {delivered_in_sprint + carryover_in_sprint}", end="", flush=True)
+        if issue["key"] in parsed_issues:
+            continue
+        
         check_issue_resolution_in_sprint(issue)
+        parsed_issues[issue["key"]] = True
+        persist_state(state)
     
     print()
-    ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
+    ratio = delivered_in_sprint / (delivered_in_sprint + carryover_in_sprint)
     print(f"Ratio of CD: {'{0:.2f}'.format(ratio*100)}%")
+    existing_state.unlink()
 
 except requests.exceptions.RequestException as e:
     print(f"Error making request to Jira: {e}")
