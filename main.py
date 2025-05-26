@@ -212,7 +212,7 @@ try:
     
     print()
     ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
-    print(f"Ratio of CD: {ratio}")
+    print(f"Ratio of CD: {'{0:.2f}'.format(ratio*100)}%")
 
 except requests.exceptions.RequestException as e:
     print(f"Error making request to Jira: {e}")
