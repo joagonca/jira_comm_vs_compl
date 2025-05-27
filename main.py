@@ -287,10 +287,13 @@ try:
         parsed_issues[issue["key"]] = True
         persist_state(STATE, parsed_issues, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT)
 
-    print()
-    ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
-    print(f"Ratio of CD: {(ratio * 100):.2f}%")
-    existing_state.unlink()
+    if DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT == 0:
+        print("No issues found.")
+    else:
+        print()
+        ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
+        print(f"Ratio of CD: {(ratio * 100):.2f}%")
+        existing_state.unlink()
 
 except requests.exceptions.RequestException as e:
     print(f"Error making request to Jira: {e}")
