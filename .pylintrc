@@ -1,3 +1,2 @@
-disable=global-statement
 [FORMAT]
 max-line-length=240

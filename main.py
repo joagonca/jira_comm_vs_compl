@@ -21,24 +21,31 @@ TEAMS_STRING = ""
 
 SPRINT_CUSTOM_FIELD = "customfield_10000"
 
-delivered_in_sprint = 0
-carryover_in_sprint = 0
-total_issues = 0
-parsed_issues = {}
-
+###
+# STORAGE CLASS
+###
 class State:
-    def __init__(self, issues):
-        self.issues = issues
+    """Class to store current state"""
+    def __init__(self, iss):
+        self.issues = iss
+        self.delivered = self.carryover = 0
+        self.parsed_issues = {}
 
-    def prepare_to_save(self):
-        self.parsed_issues = parsed_issues
-        self.delivered_in_sprint = delivered_in_sprint
-        self.carryover_in_sprint = carryover_in_sprint
+    def prepare_to_save(self, pi, delivered, carryover):
+        """Updates the class with the latest values"""
+        self.parsed_issues = pi
+        self.delivered = delivered
+        self.carryover = carryover
 
-def persist_state(state):
-    state.prepare_to_save()
-    with open(".state", "wb") as f:
-        pickle.dump(state, f)
+###
+# FUNCTIONS
+###
+
+def persist_state(state, pi, delivered, carryover):
+    """Persists state to disk"""
+    state.prepare_to_save(pi, delivered, carryover)
+    with open(".state", "wb") as fb:
+        pickle.dump(state, fb)
 
 def jira_request(url, method='GET', data=None):
     """Generic function to call JIRA APIs"""
@@ -65,16 +72,14 @@ def jira_request(url, method='GET', data=None):
             if error_count > 3:
                 response.raise_for_status()
 
-            print(f"\rErrored out, sleeping for 30 seconds...                      ", end="", flush=True)
+            print("\rErrored out, sleeping for 30 seconds...                      ", end="", flush=True)
             time.sleep(30)
-            print(f"\r                                                             ", end="", flush=True)
+            print("\r                                                             ", end="", flush=True)
 
     return response.json()
 
 def get_all_issues(project_key, skew):
     """Get all issues for a specific project"""
-    global total_issues
-
     issues_combo = []
     issues_url = f'{JIRA_URL}/search'
 
@@ -102,8 +107,7 @@ def get_all_issues(project_key, skew):
 
         issues_combo =  issues_combo + response['issues']
 
-    total_issues = total
-    return issues_combo
+    return issues_combo, total
 
 def parse_sprint_string(sprint_string):
     """Parsing the custom field that contains sprint information"""
@@ -123,12 +127,9 @@ def parse_sprint_string(sprint_string):
 
     return info
 
-def check_issue_resolution_in_sprint(issue):
+def check_issue_resolution_in_sprint(iss):
     """Validates if issue was solved in the sprint"""
-    global delivered_in_sprint
-    global carryover_in_sprint
-
-    changelog_url = f'{JIRA_URL}/issue/{issue["key"]}?expand=changelog'
+    changelog_url = f'{JIRA_URL}/issue/{iss["key"]}?expand=changelog'
     changelog_response = jira_request(changelog_url)
 
     sprints_raw = changelog_response["fields"].get(SPRINT_CUSTOM_FIELD, [])
@@ -167,11 +168,13 @@ def check_issue_resolution_in_sprint(issue):
 
     if start_sprint != "" and consider:
         if start_sprint == end_sprint:
-            delivered_in_sprint += 1
-        else:
-            carryover_in_sprint += 1
+            return True
 
-    return True
+    return False
+
+###
+# MAIN
+###
 
 parser = argparse.ArgumentParser(
     prog='jira_stats',
@@ -231,40 +234,59 @@ if teams_as_file.is_file():
 else:
     TEAMS_STRING = args.teams
 
-state = None
+###
+# LOADING STATE
+###
+
+STATE = None
 
 existing_state = Path(".state")
 if existing_state.is_file():
     with open(".state", "rb") as f:
-        state = pickle.load(f)
+        STATE = pickle.load(f)
+
+DELIVERED_IN_SPRINT = 0
+CARRYOVER_IN_SPRINT = 0
+TOTAL_ISSUES = 0
+
+parsed_issues = {}
+
+if STATE is not None:
+    issues = STATE.issues
+    parsed_issues = STATE.parsed_issues
+    TOTAL_ISSUES = len(issues)
+    DELIVERED_IN_SPRINT = STATE.delivered
+    CARRYOVER_IN_SPRINT = STATE.carryover
+    print("Loaded state!")
+
+###
+# MAIN
+###
 
 try:
-    if state is None:
+    if STATE is None:
         print("Fetching issues...")
-        issues = get_all_issues(args.project, args.skew)
-        state = State(issues)
-    else:
-        issues = state.issues
-        total_issues = len(issues)
-        parsed_issues = state.parsed_issues
-        delivered_in_sprint = state.delivered_in_sprint
-        carryover_in_sprint = state.carryover_in_sprint
-        print("Loaded state!")
+        issues, TOTAL_ISSUES = get_all_issues(args.project, args.skew)
+        STATE = State(issues)
 
     i = 0
     for issue in issues:
         i += 1
-        print(f"\rProgress: {i}/{total_issues} | Valid: {delivered_in_sprint + carryover_in_sprint}", end="", flush=True)
+        print(f"\rProgress: {i}/{TOTAL_ISSUES} | Valid: {DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT}", end="", flush=True)
         if issue["key"] in parsed_issues:
             continue
-        
-        check_issue_resolution_in_sprint(issue)
+
+        if check_issue_resolution_in_sprint(issue):
+            DELIVERED_IN_SPRINT += 1
+        else:
+            CARRYOVER_IN_SPRINT += 1
+
         parsed_issues[issue["key"]] = True
-        persist_state(state)
-    
+        persist_state(STATE, parsed_issues, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT)
+
     print()
-    ratio = delivered_in_sprint / (delivered_in_sprint + carryover_in_sprint)
-    print(f"Ratio of CD: {'{0:.2f}'.format(ratio*100)}%")
+    ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
+    print(f"Ratio of CD: {(ratio * 100):.2f}%")
     existing_state.unlink()
 
 except requests.exceptions.RequestException as e:
