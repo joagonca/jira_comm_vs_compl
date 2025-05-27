@@ -168,9 +168,11 @@ def check_issue_resolution_in_sprint(iss):
 
     if start_sprint != "" and consider:
         if start_sprint == end_sprint:
-            return True
+            return 1
+        else:
+            return 0
 
-    return False
+    return -1
 
 ###
 # MAIN
@@ -276,9 +278,10 @@ try:
         if issue["key"] in parsed_issues:
             continue
 
-        if check_issue_resolution_in_sprint(issue):
+        resolution = check_issue_resolution_in_sprint(issue)
+        if resolution == 1:
             DELIVERED_IN_SPRINT += 1
-        else:
+        elif resolution == 0:
             CARRYOVER_IN_SPRINT += 1
 
         parsed_issues[issue["key"]] = True
