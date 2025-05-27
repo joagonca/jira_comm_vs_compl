@@ -196,7 +196,7 @@ parser.add_argument('-p', '--project',
 parser.add_argument('-t', '--teams',
                     dest='teams',
                     required=True,
-                    help='JIRA Teams to filter')
+                    help='JIRA Teams to filter (either a file or a string)')
 
 parser.add_argument('-s', '--secret',
                     dest='secret',
@@ -224,8 +224,12 @@ with open(args.secret, encoding='utf-8') as f:
     JIRA_USERNAME = f.readline().strip()
     JIRA_PASSWORD = f.readline().strip()
 
-with open(args.teams, encoding='utf-8') as f:
-    TEAMS_STRING = f.readline().strip()
+teams_as_file = Path(args.teams)
+if teams_as_file.is_file():
+    with open(args.teams, encoding='utf-8') as f:
+        TEAMS_STRING = f.readline().strip()
+else:
+    TEAMS_STRING = args.teams
 
 state = None
 
