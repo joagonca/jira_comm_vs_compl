@@ -72,7 +72,8 @@ def jira_request(url, method='GET', data=None):
             if error_count > 3:
                 response.raise_for_status()
 
-            print("\rErrored out, sleeping for 30 seconds...                      ", end="", flush=True)
+            print("\r                                                             ", end="", flush=True)
+            print("\rErrored out, sleeping for 30 seconds...", end="", flush=True)
             time.sleep(30)
             print("\r                                                             ", end="", flush=True)
 
