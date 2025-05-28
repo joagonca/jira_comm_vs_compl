@@ -17,9 +17,12 @@ DEBUG_DIR = "debug"
 
 class IssueInfo:
     """Class to return issue info"""
-    def __init__(self, delivered_in_sprint, story_points):
+    def __init__(self, delivered_in_sprint, story_points, issue_type, cycle_time):
         self.delivered_in_sprint = delivered_in_sprint
         self.story_points = story_points
+        self.issue_type = issue_type
+        self.cycle_time = cycle_time
+
 class JiraTools:
     """Class that handles everything JIRA"""
     def __init__(self, user, password, url, proxies, debug):
@@ -130,6 +133,7 @@ class JiraTools:
         """Validates if issue was solved in the sprint"""
         changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
         changelog_response = self.jira_request(changelog_url)
+        issue_type = changelog_response["fields"]["issuetype"]["name"]
 
         if self.debug:
             self.store_debug_info(iss["key"], changelog_response)
@@ -161,24 +165,43 @@ class JiraTools:
         start_sprint = ""
         end_sprint = ""
         consider = False
+
+        pending_duration = 0
+        pending_start = None
+        work_start = None
+        work_end = None
+
         for t in transitions:
             if t['to'] == "In Progress":
                 start_sprint = t['sprint']
+                if work_start is None:
+                    work_start = t['timestamp']
+
                 if t['state'] == "CLOSED":
                     consider = True
 
             if t['to'] == "Resolved":
                 end_sprint = t['sprint']
+                work_end = t['timestamp']
                 consider = True
+
+            if t['to'] == "Pending":
+                pending_start = t['timestamp']
+            if t['from'] == "Pending":
+                pending_duration += (t['timestamp'] - pending_start).total_seconds()
 
         story_points = changelog_response["fields"].get(STORY_POINTS_CUSTOM_FIELD, 1.0)
         if story_points is None:
             story_points = 1.0
 
+        cycle_time = 0
+        if work_start and work_end is not None:
+            cycle_time = (work_end - work_start).total_seconds() - pending_duration
+
         if start_sprint != "" and consider:
             if start_sprint == end_sprint:
-                return IssueInfo(True, story_points)
+                return IssueInfo(True, story_points, issue_type, cycle_time)
             else:
-                return IssueInfo(False, story_points)
+                return IssueInfo(False, story_points, issue_type, cycle_time)
 
         return None

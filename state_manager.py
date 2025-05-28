@@ -12,13 +12,18 @@ class State:
     def __init__(self, iss):
         self.issues = iss
         self.delivered = self.carryover = 0
+        self.delivered_sp = self.carryover_sp = 0
         self.parsed_issues = {}
+        self.cycle_time_per_type = {}
 
-    def persist_state(self, pi, delivered, carryover):
+    def persist_state(self, pi, cycle, delivered, carryover, delivered_sp, carryover_sp):
         """Persists state to disk"""
         self.parsed_issues = pi
+        self.cycle_time_per_type = cycle
         self.delivered = delivered
         self.carryover = carryover
+        self.delivered_sp = delivered_sp
+        self.carryover_sp = carryover_sp
 
         with open(STATE_FILE, "wb") as fb:
             pickle.dump(self, fb)

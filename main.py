@@ -8,6 +8,7 @@ import requests
 from arg_parser import create_argument_parser
 from jira_tools import JiraTools
 from state_manager import State
+from utils import seconds_to_pretty
 
 parser = create_argument_parser()
 args = parser.parse_args()
@@ -51,12 +52,17 @@ TOTAL_ISSUES = 0
 
 parsed_issues = {}
 
+cycle_time_per_type = {}
+
 if state is not None:
     issues = state.issues
     parsed_issues = state.parsed_issues
+    cycle_time_per_type = state.cycle_time_per_type
     TOTAL_ISSUES = len(issues)
     DELIVERED_IN_SPRINT = state.delivered
     CARRYOVER_IN_SPRINT = state.carryover
+    DELIVERED_SPTS = state.delivered_sp
+    CARRYOVER_SPTS = state.carryover_sp
     print("Loaded state!")
 
 ###
@@ -85,17 +91,29 @@ try:
                 CARRYOVER_IN_SPRINT += 1
                 CARRYOVER_SPTS += issue_info.story_points
 
+            if issue_info.issue_type in cycle_time_per_type:
+                cycle_time_per_type[issue_info.issue_type].append(issue_info.cycle_time)
+            else:
+                cycle_time_per_type[issue_info.issue_type] = [issue_info.cycle_time]
+
         parsed_issues[issue["key"]] = True
-        state.persist_state(parsed_issues, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT)
+        state.persist_state(parsed_issues, cycle_time_per_type, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT, DELIVERED_SPTS, CARRYOVER_SPTS)
 
     if DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT == 0:
         print("No issues found.")
     else:
-        print()
         ratio_issue = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
         ratio_sp = DELIVERED_SPTS / (DELIVERED_SPTS + CARRYOVER_SPTS)
+
+        print()        
         print(f"Ratio of CD (by issue count): {(ratio_issue * 100):.2f}%")
         print(f"Ratio of CD (by story points): {(ratio_sp * 100):.2f}%")
+
+        print()
+        print("Average cycle time:")
+        for k, v in cycle_time_per_type.items():
+            print(f"{k}: {seconds_to_pretty(sum(v) / len(v))}")
+
         State.clear_state()
 
 except requests.exceptions.RequestException as e:
