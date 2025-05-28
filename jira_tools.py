@@ -59,6 +59,10 @@ class JiraTools:
         if skew > 0:
             skew_str = f" AND updated >= startOfMonth(-{skew-1})"
 
+        teams_str = ""
+        if teams != "":
+            teams_str = f" AND Team in ({teams})"
+
         start_at = 0
         total = 1
 
@@ -66,7 +70,7 @@ class JiraTools:
             response = self.jira_request(issues_url,
                                     'POST',
                                     data={
-                                        'jql': f"project={project_key} AND Team in ({teams}) AND (type=Story OR type=Defect OR type=Task) AND Sprint is not EMPTY{skew_str}",
+                                        'jql': f"project={project_key} AND (type=Story OR type=Defect OR type=Task) AND Sprint is not EMPTY{teams_str}{skew_str}",
                                         'maxResults': MAX_RESULTS,
                                         'startAt': start_at,
                                         'fields': [

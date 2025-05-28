@@ -28,7 +28,7 @@ def create_argument_parser():
 
     parser.add_argument('-t', '--teams',
                         dest='teams',
-                        required=True,
+                        default="",
                         help='JIRA Teams to filter (either a file or a string)')
 
     parser.add_argument('-s', '--secret',
