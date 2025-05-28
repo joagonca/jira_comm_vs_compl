@@ -135,6 +135,9 @@ class JiraTools:
             self.store_debug_info(iss["key"], changelog_response)
 
         sprints_raw = changelog_response["fields"].get(SPRINT_CUSTOM_FIELD, [])
+        if sprints_raw is None:
+            return None
+
         parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
 
         transitions = []
@@ -168,9 +171,9 @@ class JiraTools:
                 end_sprint = t['sprint']
                 consider = True
 
-        story_points = changelog_response["fields"].get(STORY_POINTS_CUSTOM_FIELD, 0.0)
+        story_points = changelog_response["fields"].get(STORY_POINTS_CUSTOM_FIELD, 1.0)
         if story_points is None:
-            story_points = 0.0
+            story_points = 1.0
 
         if start_sprint != "" and consider:
             if start_sprint == end_sprint:
