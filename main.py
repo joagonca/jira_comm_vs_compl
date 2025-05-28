@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 
 from arg_parser import create_argument_parser
-from jira_tools import JiraTools
+from jira_tools import JiraTools, IssueInfo
 from state_manager import State
 
 parser = create_argument_parser()
@@ -46,7 +46,9 @@ jira = JiraTools(JIRA_USERNAME, JIRA_PASSWORD, JIRA_URL, PROXIES, args.debug)
 state = State.load_state()
 
 DELIVERED_IN_SPRINT = 0
+DELIVERED_SPTS = 0
 CARRYOVER_IN_SPRINT = 0
+CARRYOVER_SPTS = 0
 TOTAL_ISSUES = 0
 
 parsed_issues = {}
@@ -76,11 +78,14 @@ try:
         if issue["key"] in parsed_issues:
             continue
 
-        resolution = jira.check_issue_resolution_in_sprint(issue)
-        if resolution == 1:
-            DELIVERED_IN_SPRINT += 1
-        elif resolution == 0:
-            CARRYOVER_IN_SPRINT += 1
+        issue_info = jira.check_issue_resolution_in_sprint(issue)
+        if issue_info is not None:
+            if issue_info.delivered_in_sprint:
+                DELIVERED_IN_SPRINT += 1
+                DELIVERED_SPTS += issue_info.story_points
+            else:
+                CARRYOVER_IN_SPRINT += 1
+                CARRYOVER_SPTS += issue_info.story_points
 
         parsed_issues[issue["key"]] = True
         state.persist_state(parsed_issues, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT)
@@ -89,8 +94,10 @@ try:
         print("No issues found.")
     else:
         print()
-        ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
-        print(f"Ratio of CD: {(ratio * 100):.2f}%")
+        ratio_issue = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
+        ratio_sp = DELIVERED_SPTS / (DELIVERED_SPTS + CARRYOVER_SPTS)
+        print(f"Ratio of CD (by issue count): {(ratio_issue * 100):.2f}%")
+        print(f"Ratio of CD (by story points): {(ratio_sp * 100):.2f}%")
         State.clear_state()
 
 except requests.exceptions.RequestException as e:

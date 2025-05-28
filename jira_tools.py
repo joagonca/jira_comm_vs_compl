@@ -14,6 +14,12 @@ SPRINT_CUSTOM_FIELD = "customfield_10000"
 STORY_POINTS_CUSTOM_FIELD = "customfield_10006"
 
 DEBUG_DIR = "debug"
+
+class IssueInfo:
+    """Class to return issue info"""
+    def __init__(self, delivered_in_sprint, story_points):
+        self.delivered_in_sprint = delivered_in_sprint
+        self.story_points = story_points
 class JiraTools:
     """Class that handles everything JIRA"""
     def __init__(self, user, password, url, proxies, debug):
@@ -156,10 +162,14 @@ class JiraTools:
                 end_sprint = t['sprint']
                 consider = True
 
+        story_points = changelog_response["fields"].get(STORY_POINTS_CUSTOM_FIELD, 0.0)
+        if story_points is None:
+            story_points = 0.0
+
         if start_sprint != "" and consider:
             if start_sprint == end_sprint:
-                return 1
+                return IssueInfo(True, story_points)
             else:
-                return 0
+                return IssueInfo(False, story_points)
 
-        return -1
+        return None
