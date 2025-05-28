@@ -20,21 +20,21 @@ def create_argument_parser():
                         dest='url',
                         required=True,
                         help='JIRA API URL')
+    
+    parser.add_argument('-s', '--secret',
+                        dest='secret',
+                        required=True,
+                        help='file with your user and password information (1st line: user 2nd line: password)')
 
     parser.add_argument('-p', '--project',
                         dest='project',
                         required=True,
-                        help='JIRA Project key to target')
+                        help='JIRA Project key to target')    
 
     parser.add_argument('-t', '--teams',
                         dest='teams',
                         default="",
                         help='JIRA Teams to filter (either a file or a string)')
-
-    parser.add_argument('-s', '--secret',
-                        dest='secret',
-                        required=True,
-                        help='file with your user and password information (1st line: user 2nd line: password)')
 
     parser.add_argument('-d', '--skew',
                         dest='skew',
