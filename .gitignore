@@ -3,3 +3,6 @@
 
 *.conf
 venv/
+.state
+
+__pycache__/
