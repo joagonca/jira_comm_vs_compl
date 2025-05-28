@@ -5,9 +5,10 @@ Get completed vs. delivered
 import argparse
 from datetime import datetime
 from pathlib import Path
-import pickle
 import time
 import requests
+
+from state_manager import State
 
 PROXIES = {}
 
@@ -20,32 +21,6 @@ JIRA_PASSWORD = ""
 TEAMS_STRING = ""
 
 SPRINT_CUSTOM_FIELD = "customfield_10000"
-
-###
-# STORAGE CLASS
-###
-class State:
-    """Class to store current state"""
-    def __init__(self, iss):
-        self.issues = iss
-        self.delivered = self.carryover = 0
-        self.parsed_issues = {}
-
-    def prepare_to_save(self, pi, delivered, carryover):
-        """Updates the class with the latest values"""
-        self.parsed_issues = pi
-        self.delivered = delivered
-        self.carryover = carryover
-
-###
-# FUNCTIONS
-###
-
-def persist_state(state, pi, delivered, carryover):
-    """Persists state to disk"""
-    state.prepare_to_save(pi, delivered, carryover)
-    with open(".state", "wb") as fb:
-        pickle.dump(state, fb)
 
 def jira_request(url, method='GET', data=None):
     """Generic function to call JIRA APIs"""
@@ -241,12 +216,7 @@ else:
 # LOADING STATE
 ###
 
-STATE = None
-
-existing_state = Path(".state")
-if existing_state.is_file():
-    with open(".state", "rb") as f:
-        STATE = pickle.load(f)
+STATE = State.load_state()
 
 DELIVERED_IN_SPRINT = 0
 CARRYOVER_IN_SPRINT = 0
@@ -286,7 +256,7 @@ try:
             CARRYOVER_IN_SPRINT += 1
 
         parsed_issues[issue["key"]] = True
-        persist_state(STATE, parsed_issues, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT)
+        STATE.persist_state(parsed_issues, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT)
 
     if DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT == 0:
         print("No issues found.")
@@ -294,7 +264,7 @@ try:
         print()
         ratio = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
         print(f"Ratio of CD: {(ratio * 100):.2f}%")
-        existing_state.unlink()
+        State.clear_state()
 
 except requests.exceptions.RequestException as e:
     print(f"Error making request to Jira: {e}")
