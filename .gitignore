@@ -6,3 +6,4 @@ venv/
 .state
 
 __pycache__/
+debug/
