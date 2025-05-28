@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 
 from arg_parser import create_argument_parser
-from jira_tools import JiraTools, IssueInfo
+from jira_tools import JiraTools
 from state_manager import State
 
 parser = create_argument_parser()
@@ -34,8 +34,6 @@ if teams_as_file.is_file():
         TEAMS_STRING = f.readline().strip()
 else:
     TEAMS_STRING = args.teams
-
-STORY_POINTS = args.story_points
 
 jira = JiraTools(JIRA_USERNAME, JIRA_PASSWORD, JIRA_URL, PROXIES, args.debug)
 
@@ -68,7 +66,7 @@ if state is not None:
 try:
     if state is None:
         print("Fetching issues...")
-        issues, TOTAL_ISSUES = jira.get_all_issues(args.project, TEAMS_STRING, args.skew)
+        issues, TOTAL_ISSUES = jira.get_all_issues(args.project, TEAMS_STRING, args.skew, args.jql)
         state = State(issues)
 
     i = 0

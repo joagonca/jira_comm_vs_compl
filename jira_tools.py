@@ -67,7 +67,7 @@ class JiraTools:
 
         return response.json()
 
-    def get_all_issues(self, project_key, teams, skew):
+    def get_all_issues(self, project_key, teams, skew, custom_jql):
         """Get all issues for a specific project"""
         issues_combo = []
         issues_url = f'{self.url}/search'
@@ -83,11 +83,17 @@ class JiraTools:
         start_at = 0
         total = 1
 
+        jql = ""
+        if custom_jql != "":
+            jql = f"{custom_jql}{teams_str}{skew_str}"
+        else:
+            jql = f"project={project_key} AND (type=Story OR type=Defect OR type=Task) AND Sprint is not EMPTY{teams_str}{skew_str}"
+
         while start_at < total:
             response = self.jira_request(issues_url,
                                     'POST',
                                     data={
-                                        'jql': f"project={project_key} AND (type=Story OR type=Defect OR type=Task) AND Sprint is not EMPTY{teams_str}{skew_str}",
+                                        'jql': jql,
                                         'maxResults': MAX_RESULTS,
                                         'startAt': start_at,
                                         'fields': [

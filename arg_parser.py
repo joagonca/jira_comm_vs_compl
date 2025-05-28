@@ -36,11 +36,6 @@ def create_argument_parser():
                         required=True,
                         help='JIRA Project key to target')
 
-    parser.add_argument('-sp',
-                        dest='story_points',
-                        action='store_true',
-                        help='If you want to count SPs instead')
-
     parser.add_argument('-t', '--teams',
                         dest='teams',
                         default="",
@@ -52,5 +47,10 @@ def create_argument_parser():
                         type=int,
                         required=False,
                         help='define how far back in months you want to check (since two months ago: -2)')
+
+    parser.add_argument('--jql',
+                        dest='jql',
+                        default="",
+                        help='JQL query to use (still supports the Skew and Teams argument)')
 
     return parser
