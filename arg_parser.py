@@ -12,6 +12,11 @@ def create_argument_parser():
         epilog='CFK ♥ 2025'
     )
 
+    parser.add_argument('--debug',
+                        dest='debug',
+                        action="store_true",
+                        help='Enable debug mode for API calls')
+
     parser.add_argument('--proxy',
                         dest='proxy',
                         help='If a proxy is to be used to reach out to JIRA')
@@ -20,7 +25,7 @@ def create_argument_parser():
                         dest='url',
                         required=True,
                         help='JIRA API URL')
-    
+
     parser.add_argument('-s', '--secret',
                         dest='secret',
                         required=True,
@@ -29,7 +34,12 @@ def create_argument_parser():
     parser.add_argument('-p', '--project',
                         dest='project',
                         required=True,
-                        help='JIRA Project key to target')    
+                        help='JIRA Project key to target')
+
+    parser.add_argument('-sp',
+                        dest='story_points',
+                        action='store_true',
+                        help='If you want to count SPs instead')
 
     parser.add_argument('-t', '--teams',
                         dest='teams',

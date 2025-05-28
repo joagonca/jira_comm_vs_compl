@@ -3,20 +3,31 @@ JIRA tools
 """
 
 from datetime import datetime
+import json
+import os
 import time
 
 import requests
 
 MAX_RESULTS = 1000
 SPRINT_CUSTOM_FIELD = "customfield_10000"
+STORY_POINTS_CUSTOM_FIELD = "customfield_10006"
 
+DEBUG_DIR = "debug"
 class JiraTools:
     """Class that handles everything JIRA"""
-    def __init__(self, user, password, url, proxies):
+    def __init__(self, user, password, url, proxies, debug):
         self.user = user
         self.password = password
         self.url = url
         self.proxies = {} if proxies is None else proxies
+        self.debug = debug
+
+    def store_debug_info(self, issue, data):
+        """Saves debug info to disk"""
+        os.makedirs(DEBUG_DIR, exist_ok=True)
+        with open(f"{DEBUG_DIR}/{issue}.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     def jira_request(self, url, method='GET', data=None):
         """Generic function to call JIRA APIs"""
@@ -107,6 +118,9 @@ class JiraTools:
         """Validates if issue was solved in the sprint"""
         changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
         changelog_response = self.jira_request(changelog_url)
+
+        if self.debug:
+            self.store_debug_info(iss["key"], changelog_response)
 
         sprints_raw = changelog_response["fields"].get(SPRINT_CUSTOM_FIELD, [])
         parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]

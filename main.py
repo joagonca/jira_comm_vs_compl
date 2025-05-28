@@ -35,7 +35,9 @@ if teams_as_file.is_file():
 else:
     TEAMS_STRING = args.teams
 
-jira = JiraTools(JIRA_USERNAME, JIRA_PASSWORD, JIRA_URL, PROXIES)
+STORY_POINTS = args.story_points
+
+jira = JiraTools(JIRA_USERNAME, JIRA_PASSWORD, JIRA_URL, PROXIES, args.debug)
 
 ###
 # LOADING STATE
