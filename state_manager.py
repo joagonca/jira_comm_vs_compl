@@ -5,6 +5,8 @@ State manager
 from pathlib import Path
 import pickle
 
+from utils import seconds_to_pretty
+
 STATE_FILE = ".state"
 
 class State:
@@ -16,17 +18,53 @@ class State:
         self.parsed_issues = {}
         self.cycle_time_per_type = {}
 
-    def persist_state(self, pi, cycle, delivered, carryover, delivered_sp, carryover_sp):
-        """Persists state to disk"""
-        self.parsed_issues = pi
-        self.cycle_time_per_type = cycle
-        self.delivered = delivered
-        self.carryover = carryover
-        self.delivered_sp = delivered_sp
-        self.carryover_sp = carryover_sp
+    def add_delivered(self, story_points):
+        """Add a delivered issue"""
+        self.delivered += 1
+        self.delivered_sp += story_points
 
+    def add_carryover(self, story_points):
+        """Add a carryover issue"""
+        self.carryover += 1
+        self.carryover_sp += story_points
+
+    def add_issue_cycle_time(self, issue_type, duration):
+        """Adds the cycle time of an issue"""
+        if issue_type in self.cycle_time_per_type:
+            self.cycle_time_per_type[issue_type].append(duration)
+        else:
+            self.cycle_time_per_type[issue_type] = [duration]
+
+    def add_parsed_issue(self, issue_key):
+        """Adds a parsed issue to the dict"""
+        self.parsed_issues[issue_key] = True
+
+    def get_total_valid_issues(self):
+        """Returns a count of the total of valid issues"""
+        return self.delivered + self.carryover
+
+    def get_total_sps(self):
+        """Returns a total of SPs worked on"""
+        return self.delivered_sp + self.carryover_sp
+
+    def persist_state(self):
+        """Persists state to disk"""
         with open(STATE_FILE, "wb") as fb:
             pickle.dump(self, fb)
+
+    def print_stats(self):
+        """Prints current stats"""
+        ratio_issue = self.delivered / (self.get_total_valid_issues())
+        ratio_sp = self.delivered_sp / (self.get_total_sps())
+
+        print()
+        print(f"Ratio of CD (by issue count): {(ratio_issue * 100):.2f}%")
+        print(f"Ratio of CD (by story points): {(ratio_sp * 100):.2f}%")
+
+        print()
+        print("Average cycle time:")
+        for k, v in self.cycle_time_per_type.items():
+            print(f"{k}: {seconds_to_pretty(sum(v) / len(v))}")
 
     @staticmethod
     def load_state():

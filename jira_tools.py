@@ -109,7 +109,7 @@ class JiraTools:
 
             issues_combo =  issues_combo + response['issues']
 
-        return issues_combo, total
+        return issues_combo
 
     def parse_sprint_string(self, sprint_string):
         """Parsing the custom field that contains sprint information"""

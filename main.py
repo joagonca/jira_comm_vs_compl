@@ -8,7 +8,6 @@ import requests
 from arg_parser import create_argument_parser
 from jira_tools import JiraTools
 from state_manager import State
-from utils import seconds_to_pretty
 
 parser = create_argument_parser()
 args = parser.parse_args()
@@ -43,26 +42,8 @@ jira = JiraTools(JIRA_USERNAME, JIRA_PASSWORD, JIRA_URL, PROXIES, args.debug)
 ###
 
 state = State.load_state()
-
-DELIVERED_IN_SPRINT = 0
-DELIVERED_SPTS = 0
-CARRYOVER_IN_SPRINT = 0
-CARRYOVER_SPTS = 0
-TOTAL_ISSUES = 0
-
-parsed_issues = {}
-
-cycle_time_per_type = {}
-
 if state is not None:
     issues = state.issues
-    parsed_issues = state.parsed_issues
-    cycle_time_per_type = state.cycle_time_per_type
-    TOTAL_ISSUES = len(issues)
-    DELIVERED_IN_SPRINT = state.delivered
-    CARRYOVER_IN_SPRINT = state.carryover
-    DELIVERED_SPTS = state.delivered_sp
-    CARRYOVER_SPTS = state.carryover_sp
     print("Loaded state!")
 
 ###
@@ -72,48 +53,33 @@ if state is not None:
 try:
     if state is None:
         print("Fetching issues...")
-        issues, TOTAL_ISSUES = jira.get_all_issues(args.project, TEAMS_STRING, args.skew, args.jql)
+        issues = jira.get_all_issues(args.project, TEAMS_STRING, args.skew, args.jql)
         state = State(issues)
 
+    TOTAL_ISSUES = len(issues)
     i = 0
     for issue in issues:
         i += 1
-        print(f"\rProgress: {i}/{TOTAL_ISSUES} | Valid: {DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT}", end="", flush=True)
-        if issue["key"] in parsed_issues:
+        print(f"\rProgress: {i}/{TOTAL_ISSUES} | Valid: {state.get_total_valid_issues()}", end="", flush=True)
+        if issue["key"] in state.parsed_issues:
             continue
 
         issue_info = jira.check_issue_resolution_in_sprint(issue)
         if issue_info is not None:
             if issue_info.delivered_in_sprint:
-                DELIVERED_IN_SPRINT += 1
-                DELIVERED_SPTS += issue_info.story_points
+                state.add_delivered(issue_info.story_points)
             else:
-                CARRYOVER_IN_SPRINT += 1
-                CARRYOVER_SPTS += issue_info.story_points
+                state.add_carryover(issue_info.story_points)
 
-            if issue_info.issue_type in cycle_time_per_type:
-                cycle_time_per_type[issue_info.issue_type].append(issue_info.cycle_time)
-            else:
-                cycle_time_per_type[issue_info.issue_type] = [issue_info.cycle_time]
+            state.add_issue_cycle_time(issue_info.issue_type, issue_info.cycle_time)
 
-        parsed_issues[issue["key"]] = True
-        state.persist_state(parsed_issues, cycle_time_per_type, DELIVERED_IN_SPRINT, CARRYOVER_IN_SPRINT, DELIVERED_SPTS, CARRYOVER_SPTS)
+        state.add_parsed_issue(issue["key"])
+        state.persist_state()
 
-    if DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT == 0:
+    if state.get_total_valid_issues() == 0:
         print("No issues found.")
     else:
-        ratio_issue = DELIVERED_IN_SPRINT / (DELIVERED_IN_SPRINT + CARRYOVER_IN_SPRINT)
-        ratio_sp = DELIVERED_SPTS / (DELIVERED_SPTS + CARRYOVER_SPTS)
-
-        print()        
-        print(f"Ratio of CD (by issue count): {(ratio_issue * 100):.2f}%")
-        print(f"Ratio of CD (by story points): {(ratio_sp * 100):.2f}%")
-
-        print()
-        print("Average cycle time:")
-        for k, v in cycle_time_per_type.items():
-            print(f"{k}: {seconds_to_pretty(sum(v) / len(v))}")
-
+        state.print_stats()
         State.clear_state()
 
 except requests.exceptions.RequestException as e:
