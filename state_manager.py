@@ -30,12 +30,12 @@ class State:
         self.carryover += 1
         self.carryover_sp += story_points
 
-    def add_issue_cycle_time(self, issue_type, duration):
+    def add_issue_cycle_time(self, issue_key, issue_type, duration):
         """Adds the cycle time of an issue"""
         if issue_type in self.cycle_time_per_type:
-            self.cycle_time_per_type[issue_type].append(duration)
+            self.cycle_time_per_type[issue_type].append([issue_key, duration])
         else:
-            self.cycle_time_per_type[issue_type] = [duration]
+            self.cycle_time_per_type[issue_type] = [[issue_key, duration]]
 
     def add_parsed_issue(self, issue_key):
         """Adds a parsed issue to the dict"""
@@ -67,14 +67,18 @@ class State:
         print()
         print("Average cycle time:")
         for k, v in self.cycle_time_per_type.items():
-            average = numpy.mean(v)
-            top_1 = numpy.percentile(v, 99)
-            bottom_1 = numpy.percentile(v, 1)
-            std_dev = numpy.std(v)
+            values = numpy.array([item[1] for item in v])
+            argmax = numpy.argmax(values)
+            argmin = numpy.argmin(values)
 
-            print(f"{k} ({len(v)}): {seconds_to_pretty(average)}")
-            print(f"    Top 1%: {seconds_to_pretty(top_1)}")
-            print(f"    Bottom 1%: {seconds_to_pretty(bottom_1)}")
+            average = numpy.mean(values)
+            top_1 = numpy.percentile(values, 99)
+            bottom_1 = numpy.percentile(values, 1)
+            std_dev = numpy.std(values)
+
+            print(f"{k} ({len(values)}): {seconds_to_pretty(average)}")
+            print(f"    Top 1% [{v[argmax][0]}]: {seconds_to_pretty(top_1)}")
+            print(f"    Bottom 1% [{v[argmin][0]}]: {seconds_to_pretty(bottom_1)}")
             print(f"    Std. Deviation: {seconds_to_pretty(std_dev)}")
             print()
 
