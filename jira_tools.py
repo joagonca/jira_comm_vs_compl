@@ -63,10 +63,9 @@ class JiraTools:
                 if error_count > 3:
                     response.raise_for_status()
 
-                print("\r                                                             ", end="", flush=True)
+                print("\r" + " " * os.get_terminal_size()[0], end="", flush=True)
                 print("\rErrored out, sleeping for 30 seconds...", end="", flush=True)
                 time.sleep(30)
-                print("\r                                                             ", end="", flush=True)
 
         return response.json()
 

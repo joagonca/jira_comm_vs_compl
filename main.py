@@ -5,6 +5,8 @@ Get completed vs. delivered
 from pathlib import Path
 import requests
 
+from tqdm import tqdm
+
 from arg_parser import create_argument_parser
 from jira_tools import JiraTools
 from state_manager import State
@@ -56,11 +58,9 @@ try:
         issues = jira.get_all_issues(args.project, TEAMS_STRING, args.skew, args.jql)
         state = State(issues)
 
-    TOTAL_ISSUES = len(issues)
     i = 0
-    for issue in issues:
+    for issue in tqdm(issues):
         i += 1
-        print(f"\rProgress: {i}/{TOTAL_ISSUES} | Valid: {state.get_total_valid_issues()}", end="", flush=True)
         if issue["key"] in state.parsed_issues:
             continue
 

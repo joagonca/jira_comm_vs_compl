@@ -2,9 +2,10 @@
 State manager
 """
 
-import numpy
 from pathlib import Path
 import pickle
+
+import numpy
 
 from utils import seconds_to_pretty
 
@@ -59,6 +60,7 @@ class State:
         ratio_sp = self.delivered_sp / (self.get_total_sps())
 
         print()
+        print(f"Valid issues: {self.get_total_valid_issues()}")
         print(f"Ratio of Comm vs. Delv. (by issue count): {(ratio_issue * 100):.2f}%")
         print(f"Ratio of Comm vs. Delv. (by story points): {(ratio_sp * 100):.2f}%")
 
