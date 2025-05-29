@@ -71,7 +71,8 @@ try:
             else:
                 state.add_carryover(issue_info.story_points)
 
-            state.add_issue_cycle_time(issue["key"], issue_info.issue_type, issue_info.cycle_time)
+            if issue_info.cycle_time > 0:
+                state.add_issue_cycle_time(issue["key"], issue_info.issue_type, issue_info.cycle_time)
 
         state.add_parsed_issue(issue["key"])
         state.persist_state()

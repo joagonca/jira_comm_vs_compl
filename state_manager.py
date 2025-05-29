@@ -54,6 +54,22 @@ class State:
         with open(STATE_FILE, "wb") as fb:
             pickle.dump(self, fb)
 
+    def do_and_print_quality_check(self):
+        """Output some info about outliers"""
+        negative_cycle_time = []
+        for v in self.cycle_time_per_type.values():
+            for item in v:
+                if item[1] <= 0:
+                    negative_cycle_time.append(item[0])
+
+        if len(negative_cycle_time) > 0:
+            print("Weird data:")
+            print("    Cycle time <= 0: ", end="", flush=True)
+            for item in negative_cycle_time:
+                print(f"{item} ", end="", flush=True)
+            print()
+            print()
+
     def print_stats(self):
         """Prints current stats"""
         ratio_issue = self.delivered / (self.get_total_valid_issues())
@@ -81,6 +97,8 @@ class State:
             print(f"    Bottom 1% [{v[argmin][0]}]: {seconds_to_pretty(bottom_1)}")
             print(f"    Std. Deviation: {seconds_to_pretty(std_dev)}")
             print()
+
+        self.do_and_print_quality_check()
 
     @staticmethod
     def load_state():
