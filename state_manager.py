@@ -2,6 +2,7 @@
 State manager
 """
 
+import numpy
 from pathlib import Path
 import pickle
 
@@ -58,13 +59,22 @@ class State:
         ratio_sp = self.delivered_sp / (self.get_total_sps())
 
         print()
-        print(f"Ratio of CD (by issue count): {(ratio_issue * 100):.2f}%")
-        print(f"Ratio of CD (by story points): {(ratio_sp * 100):.2f}%")
+        print(f"Ratio of Comm vs. Delv. (by issue count): {(ratio_issue * 100):.2f}%")
+        print(f"Ratio of Comm vs. Delv. (by story points): {(ratio_sp * 100):.2f}%")
 
         print()
         print("Average cycle time:")
         for k, v in self.cycle_time_per_type.items():
-            print(f"{k}: {seconds_to_pretty(sum(v) / len(v))}")
+            average = numpy.mean(v)
+            top_1 = numpy.percentile(v, 99)
+            bottom_1 = numpy.percentile(v, 1)
+            std_dev = numpy.std(v)
+
+            print(f"{k} ({len(v)}): {seconds_to_pretty(average)}")
+            print(f"    Top 1%: {seconds_to_pretty(top_1)}")
+            print(f"    Bottom 1%: {seconds_to_pretty(bottom_1)}")
+            print(f"    Std. Deviation: {seconds_to_pretty(std_dev)}")
+            print()
 
     @staticmethod
     def load_state():
