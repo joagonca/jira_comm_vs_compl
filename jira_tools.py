@@ -2,7 +2,7 @@
 JIRA tools
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import time
@@ -128,6 +128,22 @@ class JiraTools:
 
         return info
 
+    def calculate_cycle_time(self, work_start, work_end, pending_duration):
+        """"Calculates item cycle time, taking into account weekends"""
+        if work_start and work_end is None:
+            return 0
+
+        total_seconds = (work_end - work_start).total_seconds()
+
+        weekend_seconds = 0
+        current_date = work_start
+        while current_date <= work_end:
+            if current_date.weekday() >= 5:
+                weekend_seconds += 24 * 60 * 60
+            current_date += timedelta(days=1)
+
+        return total_seconds - weekend_seconds - pending_duration
+
     def check_issue_resolution_in_sprint(self, iss):
         """Validates if issue was solved in the sprint"""
         changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
@@ -193,9 +209,7 @@ class JiraTools:
         if story_points is None:
             story_points = 1.0
 
-        cycle_time = 0
-        if work_start and work_end is not None:
-            cycle_time = (work_end - work_start).total_seconds() - pending_duration
+        cycle_time = self.calculate_cycle_time(work_start, work_end, pending_duration)
 
         if start_sprint != "" and consider:
             if start_sprint == end_sprint:
