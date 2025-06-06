@@ -130,7 +130,7 @@ class JiraTools:
 
     def calculate_cycle_time(self, work_start, work_end, pending_duration):
         """"Calculates item cycle time, taking into account weekends"""
-        if work_start and work_end is None:
+        if work_start is None or work_end is None:
             return 0
 
         total_seconds = (work_end - work_start).total_seconds()
