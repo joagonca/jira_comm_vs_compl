@@ -2,12 +2,12 @@
 JIRA tools
 """
 
+import asyncio
 from datetime import datetime, timedelta
 import json
 import os
-import time
 
-import requests
+import httpx
 
 MAX_RESULTS = 1000
 SPRINT_CUSTOM_FIELD = "customfield_10000"
@@ -17,20 +17,23 @@ DEBUG_DIR = "debug"
 
 class IssueInfo:
     """Class to return issue info"""
-    def __init__(self, delivered_in_sprint, story_points, issue_type, cycle_time):
+    def __init__(self, key=None, delivered_in_sprint=None, story_points=None, issue_type=None, cycle_time=None, valid=True):
+        self.key = key
         self.delivered_in_sprint = delivered_in_sprint
         self.story_points = story_points
         self.issue_type = issue_type
         self.cycle_time = cycle_time
+        self.valid = valid
 
 class JiraTools:
     """Class that handles everything JIRA"""
-    def __init__(self, user, password, url, proxies, debug):
+    def __init__(self, user, password, url, proxies, debug, max_concurrency=5):
         self.user = user
         self.password = password
         self.url = url
-        self.proxies = {} if proxies is None else proxies
+        self.proxies = proxies
         self.debug = debug
+        self.semaphore = asyncio.Semaphore(max_concurrency)
 
     def store_debug_info(self, issue, data):
         """Saves debug info to disk"""
@@ -38,38 +41,32 @@ class JiraTools:
         with open(f"{DEBUG_DIR}/{issue}.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
-    def jira_request(self, url, method='GET', data=None):
+    async def jira_request(self, url, method='GET', data=None):
         """Generic function to call JIRA APIs"""
-        headers = {
-            'Content-Type': 'application/json'
-        }
+        retries = 3
+        async with self.semaphore:
+            async with httpx.AsyncClient(proxy=self.proxies, timeout=60, auth=(self.user, self.password)) as client:
+                for attempt in range(retries):
+                    try:
+                        response = await client.request(
+                            method,
+                            url,
+                            json=data,
+                            headers={'Content-Type': 'application/json'}
+                        )
 
-        status = 0
-        error_count = 0
-        response = None
+                        response.raise_for_status()
+                        return response.json()
 
-        while status != 200:
-            response = requests.request(method,
-                                        url,
-                                        headers=headers,
-                                        json=data,
-                                        auth=(self.user, self.password),
-                                        proxies=self.proxies,
-                                        timeout=60)
+                    except httpx.HTTPStatusError as exc:
+                        if attempt >= retries - 1:
+                            raise
 
-            status = response.status_code
-            if status != 200:
-                error_count += 1
-                if error_count > 3:
-                    response.raise_for_status()
+                        print("\r" + " " * os.get_terminal_size()[0], end="", flush=True)
+                        print(f"\rRetrying after error {exc.response.status_code}...", end="", flush=True)
+                        await asyncio.sleep(30)
 
-                print("\r" + " " * os.get_terminal_size()[0], end="", flush=True)
-                print("\rErrored out, sleeping for 30 seconds...", end="", flush=True)
-                time.sleep(30)
-
-        return response.json()
-
-    def get_all_issues(self, project_key, teams, skew, custom_jql):
+    async def get_all_issues(self, project_key, teams, skew, custom_jql):
         """Get all issues for a specific project"""
         issues_combo = []
         issues_url = f'{self.url}/search'
@@ -92,7 +89,7 @@ class JiraTools:
             jql = f"project={project_key} AND type in (Story, Defect, Task) AND assignee is not EMPTY{teams_str}{skew_str}"
 
         while start_at < total:
-            response = self.jira_request(issues_url,
+            response = await self.jira_request(issues_url,
                                     'POST',
                                     data={
                                         'jql': jql,
@@ -144,10 +141,10 @@ class JiraTools:
 
         return total_seconds - weekend_seconds - pending_duration
 
-    def check_issue_resolution_in_sprint(self, iss):
+    async def check_issue_resolution_in_sprint(self, iss):
         """Validates if issue was solved in the sprint"""
         changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
-        changelog_response = self.jira_request(changelog_url)
+        changelog_response = await self.jira_request(changelog_url)
         issue_type = changelog_response["fields"]["issuetype"]["name"]
 
         if self.debug:
@@ -155,7 +152,7 @@ class JiraTools:
 
         sprints_raw = changelog_response["fields"].get(SPRINT_CUSTOM_FIELD, [])
         if sprints_raw is None:
-            return None
+            return IssueInfo(key=iss["key"], valid=False)
 
         parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
 
@@ -213,8 +210,8 @@ class JiraTools:
 
         if start_sprint != "" and consider:
             if start_sprint == end_sprint:
-                return IssueInfo(True, story_points, issue_type, cycle_time)
+                return IssueInfo(True, iss["key"], story_points, issue_type, cycle_time)
             else:
-                return IssueInfo(False, story_points, issue_type, cycle_time)
+                return IssueInfo(False, iss["key"], story_points, issue_type, cycle_time)
 
-        return None
+        return IssueInfo(key=iss["key"], valid=False)
