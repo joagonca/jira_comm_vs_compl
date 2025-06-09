@@ -47,37 +47,37 @@ async def main():
     # MAIN
     ###
 
-    #try:
-    if state is None:
-        print("Fetching issues...")
-        issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.jql)
-        state = State(issues)
+    try:
+        if state is None:
+            print("Fetching issues...")
+            issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.jql)
+            state = State(issues)
 
-    tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
+        tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
 
-    for routine in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
-        issue_info = await routine
+        for routine in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+            issue_info = await routine
 
-        if issue_info.valid:
-            if issue_info.delivered_in_sprint:
-                state.add_delivered(issue_info.story_points)
-            else:
-                state.add_carryover(issue_info.story_points)
+            if issue_info.valid:
+                if issue_info.delivered_in_sprint:
+                    state.add_delivered(issue_info.story_points)
+                else:
+                    state.add_carryover(issue_info.story_points)
 
-            if issue_info.cycle_time > 0:
-                state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time)
+                if issue_info.cycle_time > 0:
+                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time)
 
-        state.add_parsed_issue(issue_info.key)
-        state.persist_state()
+            state.add_parsed_issue(issue_info.key)
+            state.persist_state()
 
-    if state.get_total_valid_issues() == 0:
-        print("No issues found.")
-    else:
-        state.print_stats()
-        State.clear_state()
+        if state.get_total_valid_issues() == 0:
+            print("No issues found.")
+        else:
+            state.print_stats()
+            State.clear_state()
 
-    #except Exception as e:
-    #    print(f"Error making request to Jira: {e}")
+    except Exception as e:
+        print(f"Error making request to Jira: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
