@@ -72,8 +72,8 @@ class State:
 
     def print_stats(self):
         """Prints current stats"""
-        ratio_issue = self.delivered / (self.get_total_valid_issues())
-        ratio_sp = self.delivered_sp / (self.get_total_sps())
+        ratio_issue = self.delivered / self.get_total_valid_issues()
+        ratio_sp = (self.delivered_sp / self.get_total_sps()) if self.get_total_sps() > 0 else 0
 
         print()
         print(f"Valid issues: {self.get_total_valid_issues()}")
