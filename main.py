@@ -4,6 +4,7 @@ Get completed vs. delivered
 
 import asyncio
 from pathlib import Path
+import sys
 
 from tqdm.asyncio import tqdm
 
@@ -34,8 +35,6 @@ async def main():
 
     jira = JiraTools(jira_username, jira_password, jira_url, args.proxy, args.debug)
 
-    # TODO Not loading properly (more issues processed)
-
     state = State.load_state()
     if state is not None:
         issues = state.issues
@@ -49,7 +48,7 @@ async def main():
 
         tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
 
-        for routine in tqdm(asyncio.as_completed(tasks), initial=len(issues)-len(tasks), total=len(issues)):
+        for routine in tqdm(asyncio.as_completed(tasks), initial=len(issues)-len(tasks), total=len(issues), file=sys.stdout):
             issue_info = await routine
 
             if issue_info.valid:
@@ -70,7 +69,7 @@ async def main():
             state.print_stats()
             State.clear_state()
 
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         print(f"Error making request to Jira: {e}")
 
 if __name__ == "__main__":
