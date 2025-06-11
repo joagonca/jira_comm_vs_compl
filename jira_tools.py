@@ -147,12 +147,14 @@ class JiraTools:
         changelog_response = await self.jira_request(changelog_url)
         issue_type = changelog_response["fields"]["issuetype"]["name"]
 
+        issue_info = IssueInfo(key=iss["key"], valid=False)
+
         if self.debug:
             self.store_debug_info(iss["key"], changelog_response)
 
         sprints_raw = changelog_response["fields"].get(SPRINT_CUSTOM_FIELD, [])
         if sprints_raw is None:
-            return IssueInfo(key=iss["key"], valid=False)
+            return issue_info
 
         parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
 
@@ -209,9 +211,10 @@ class JiraTools:
         cycle_time = self.calculate_cycle_time(work_start, work_end, pending_duration)
 
         if start_sprint != "" and consider:
-            if start_sprint == end_sprint:
-                return IssueInfo(delivered_in_sprint=True, key=iss["key"], story_points=story_points, issue_type=issue_type, cycle_time=cycle_time)
-            else:
-                return IssueInfo(delivered_in_sprint=False, key=iss["key"], story_points=story_points, issue_type=issue_type, cycle_time=cycle_time)
+            issue_info.story_points = story_points
+            issue_info.issue_type = issue_type
+            issue_info.cycle_time = cycle_time
+            issue_info.delivered_in_sprint = start_sprint == end_sprint
+            issue_info.valid = True
 
-        return IssueInfo(key=iss["key"], valid=False)
+        return issue_info

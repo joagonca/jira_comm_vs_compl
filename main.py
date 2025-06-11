@@ -41,8 +41,6 @@ async def main():
         issues = state.issues
         print("Loaded state!")
 
-    # TODO Committed vs. Delivered not properly calculated
-
     try:
         if state is None:
             print("Fetching issues...")
