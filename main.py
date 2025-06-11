@@ -34,18 +34,14 @@ async def main():
 
     jira = JiraTools(jira_username, jira_password, jira_url, args.proxy, args.debug)
 
-    ###
-    # LOADING STATE
-    ###
+    # TODO Not loading properly (more issues processed)
 
     state = State.load_state()
     if state is not None:
         issues = state.issues
         print("Loaded state!")
 
-    ###
-    # MAIN
-    ###
+    # TODO Committed vs. Delivered not properly calculated
 
     try:
         if state is None:
@@ -55,7 +51,7 @@ async def main():
 
         tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
 
-        for routine in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+        for routine in tqdm(asyncio.as_completed(tasks), initial=len(issues)-len(tasks), total=len(issues)):
             issue_info = await routine
 
             if issue_info.valid:

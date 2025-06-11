@@ -210,8 +210,8 @@ class JiraTools:
 
         if start_sprint != "" and consider:
             if start_sprint == end_sprint:
-                return IssueInfo(True, iss["key"], story_points, issue_type, cycle_time)
+                return IssueInfo(delivered_in_sprint=True, key=iss["key"], story_points=story_points, issue_type=issue_type, cycle_time=cycle_time)
             else:
-                return IssueInfo(False, iss["key"], story_points, issue_type, cycle_time)
+                return IssueInfo(delivered_in_sprint=False, key=iss["key"], story_points=story_points, issue_type=issue_type, cycle_time=cycle_time)
 
         return IssueInfo(key=iss["key"], valid=False)
