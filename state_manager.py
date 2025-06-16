@@ -19,6 +19,7 @@ class State:
         self.delivered_sp = self.carryover_sp = 0
         self.parsed_issues = {}
         self.cycle_time_per_type = {}
+        self.cycle_time_per_sp = {}
 
     def add_delivered(self, story_points):
         """Add a delivered issue"""
@@ -30,12 +31,18 @@ class State:
         self.carryover += 1
         self.carryover_sp += story_points
 
-    def add_issue_cycle_time(self, issue_key, issue_type, duration):
+    def add_issue_cycle_time(self, issue_key, issue_type, duration, story_points=None):
         """Adds the cycle time of an issue"""
         if issue_type in self.cycle_time_per_type:
             self.cycle_time_per_type[issue_type].append([issue_key, duration])
         else:
             self.cycle_time_per_type[issue_type] = [[issue_key, duration]]
+
+        sp_key = -1 if story_points is None or story_points == 0 else int(story_points)
+        if sp_key in self.cycle_time_per_sp:
+            self.cycle_time_per_sp[sp_key].append([issue_key, duration])
+        else:
+            self.cycle_time_per_sp[sp_key] = [[issue_key, duration]]
 
     def add_parsed_issue(self, issue_key):
         """Adds a parsed issue to the dict"""
@@ -98,6 +105,20 @@ class State:
             print(f"    Std. Deviation: {seconds_to_pretty(std_dev)}")
             print()
 
+        print("Average cycle time by Story Points:")
+
+        sorted_sp_keys = sorted(self.cycle_time_per_sp.keys(), key=lambda x: float('inf') if x == -1 else x)
+
+        for sp_key in sorted_sp_keys:
+            v = self.cycle_time_per_sp[sp_key]
+            values = numpy.array([item[1] for item in v])
+            average = numpy.mean(values)
+            std_dev = numpy.std(values)
+
+            sp_display = f"{sp_key} SPs" if sp_key != -1 else "No SPs"
+            print(f"{sp_display} ({len(values)}): {seconds_to_pretty(average)} (SD: {seconds_to_pretty(std_dev)})")
+
+        print()
         self.do_and_print_quality_check()
 
     @staticmethod

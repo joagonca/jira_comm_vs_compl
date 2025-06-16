@@ -58,7 +58,7 @@ async def main():
                     state.add_carryover(issue_info.story_points)
 
                 if issue_info.cycle_time > 0:
-                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time)
+                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points)
 
             state.add_parsed_issue(issue_info.key)
             state.persist_state()
