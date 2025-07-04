@@ -73,7 +73,7 @@ class JiraTools:
 
         skew_str = ""
         if skew > 0:
-            skew_str = f" AND updated >= startOfMonth(-{skew-1})"
+            skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{skew-1})"
 
         teams_str = ""
         if teams != "":
