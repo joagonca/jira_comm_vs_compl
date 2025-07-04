@@ -24,6 +24,7 @@ class IssueInfo:
         self.issue_type = issue_type
         self.cycle_time = cycle_time
         self.valid = valid
+        self.outside_sprint_transitions = []
 
 class JiraTools:
     """Class that handles everything JIRA"""
@@ -184,6 +185,7 @@ class JiraTools:
         pending_start = None
         work_start = None
         work_end = None
+        outside_sprint_transitions = []
 
         for t in transitions:
             if t['to'] == "In Progress":
@@ -194,10 +196,20 @@ class JiraTools:
                 if t['state'] == "CLOSED":
                     consider = True
 
+                if t['sprint'] is None:
+                    outside_sprint_transitions.append(t['to'])
+
             if t['to'] == "Resolved":
                 end_sprint = t['sprint']
                 work_end = t['timestamp']
                 consider = True
+
+                if t['sprint'] is None:
+                    outside_sprint_transitions.append(t['to'])
+
+            if t['to'] == "Closed":
+                if t['sprint'] is None:
+                    outside_sprint_transitions.append(t['to'])
 
             if t['to'] == "Pending":
                 pending_start = t['timestamp']
@@ -217,4 +229,5 @@ class JiraTools:
             issue_info.delivered_in_sprint = start_sprint == end_sprint
             issue_info.valid = True
 
+        issue_info.outside_sprint_transitions = outside_sprint_transitions
         return issue_info
