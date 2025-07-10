@@ -20,6 +20,7 @@ class State:
         self.parsed_issues = {}
         self.cycle_time_per_type = {}
         self.cycle_time_per_sp = {}
+        self.outside_sprint_per_type = {}
 
     def add_delivered(self, story_points):
         """Add a delivered issue"""
@@ -47,6 +48,13 @@ class State:
     def add_parsed_issue(self, issue_key):
         """Adds a parsed issue to the dict"""
         self.parsed_issues[issue_key] = True
+
+    def add_outside_sprint_issue(self, issue_key, issue_type):
+        """Adds an issue that was worked on outside of a sprint"""
+        if issue_type in self.outside_sprint_per_type:
+            self.outside_sprint_per_type[issue_type].append(issue_key)
+        else:
+            self.outside_sprint_per_type[issue_type] = [issue_key]
 
     def get_total_valid_issues(self):
         """Returns a count of the total of valid issues"""
@@ -119,7 +127,27 @@ class State:
             print(f"{sp_display} ({len(values)}): {seconds_to_pretty(average)} (SD: {seconds_to_pretty(std_dev)})")
 
         print()
+        self.print_outside_sprint_stats()
         self.do_and_print_quality_check()
+
+    def print_outside_sprint_stats(self):
+        """Prints stats for items worked outside of sprints"""
+        if not self.outside_sprint_per_type:
+            return
+
+        print("Items worked outside of sprints:")
+        total_outside_sprint = sum(len(issues) for issues in self.outside_sprint_per_type.values())
+        print(f"Total items: {total_outside_sprint}")
+        print()
+
+        for issue_type, issues in self.outside_sprint_per_type.items():
+            print(f"{issue_type} ({len(issues)}):")
+            display_issues = issues[:10]
+            for issue in display_issues:
+                print(f"    {issue}")
+            if len(issues) > 10:
+                print(f"    ... and {len(issues) - 10} more")
+            print()
 
     @staticmethod
     def load_state():

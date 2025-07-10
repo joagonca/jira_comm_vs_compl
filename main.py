@@ -60,6 +60,9 @@ async def main():
                 if issue_info.cycle_time > 0:
                     state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points)
 
+            if issue_info.outside_sprint_transitions:
+                state.add_outside_sprint_issue(issue_info.key, issue_info.issue_type)
+
             state.add_parsed_issue(issue_info.key)
             state.persist_state()
 
