@@ -67,14 +67,21 @@ class JiraTools:
                         print(f"\rRetrying after error {exc.response.status_code}...", end="", flush=True)
                         await asyncio.sleep(30)
 
-    async def get_all_issues(self, project_key, teams, skew, custom_jql):
+    async def get_all_issues(self, project_key, teams, skew, interval, custom_jql):
         """Get all issues for a specific project"""
         issues_combo = []
         issues_url = f'{self.url}/search'
 
         skew_str = ""
         if skew > 0:
-            skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{skew-1})"
+            if interval > 0:
+                # Interval mode: start from (interval + skew - 1) months ago, end at interval months ago
+                start_month = interval + skew - 1
+                end_month = interval - 1
+                skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{start_month}) AND updated <= endOfMonth(-{end_month})"
+            else:
+                # Original behavior: last skew months
+                skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{skew-1})"
 
         teams_str = ""
         if teams != "":
