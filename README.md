@@ -20,6 +20,7 @@
 *   **JIRA Integration:**  Connects to your JIRA instance via the API.
 *   **Team Filtering:**  Filter issues by JIRA team(s).
 *   **Time Skew Analysis:** Analyze data over a configurable time period (e.g., the last two months).
+*   **Interval Analysis:** Analyze data over a specific time interval with start offset (e.g., last 4 months starting 3 months ago).
 *   **Custom JQL Queries:**  Support for providing custom JQL queries for advanced filtering and data retrieval.
 *   **Outside Sprint Detection:** Identifies and reports items that were worked on outside of any sprint timeframe.
 
@@ -58,7 +59,7 @@ your_password
 
 ```bash
 $ python main.py -h
-usage: jira_stats [-h] [--debug] [--proxy PROXY] -u URL -s SECRET -p PROJECT [-t TEAMS] [-d SKEW] [--jql JQL]
+usage: jira_stats [-h] [--debug] [--proxy PROXY] -u URL -s SECRET -p PROJECT [-t TEAMS] [-d SKEW] [-i INTERVAL] [--jql JQL]
 
 Get JIRA stats for teams
 
@@ -72,17 +73,23 @@ options:
                         JIRA Project key to target
   -t, --teams TEAMS     JIRA Teams to filter (either a file or a string)
   -d, --skew SKEW       define how far back in months you want to check (since two months ago: -2)
+  -i, --interval INTERVAL
+                        define how many months back to start the interval (interval start: -i 3 -d 4 means last 4 months starting 3 months ago)
   --jql JQL             JQL query to use (still supports the Skew and Teams argument)
 
 CFK ♥ 2025
 ```
 
-### Example
+### Examples
 
-This will retrieve data for the project `PROJKEY`, filtering by the teams IDs `(123, 456, 112)`, for the last two months.
-
-```
+**Get data for the last 2 months:**
+```bash
 $ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -s secret.txt -d 2
+```
+
+**Get data for the last 4 months starting 3 months ago (interval mode):**
+```bash
+$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -s secret.txt -i 3 -d 4
 ```
 
 ## Contributing 
