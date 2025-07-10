@@ -43,7 +43,7 @@ async def main():
     try:
         if state is None:
             print("Fetching issues...")
-            issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.jql)
+            issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
             state = State(issues)
 
         tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]

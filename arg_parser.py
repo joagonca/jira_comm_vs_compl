@@ -48,6 +48,13 @@ def create_argument_parser():
                         required=False,
                         help='define how far back in months you want to check (since two months ago: -2)')
 
+    parser.add_argument('-i', '--interval',
+                        dest='interval',
+                        default=0,
+                        type=int,
+                        required=False,
+                        help='define how many months back to start the interval (interval start: -i 3 -d 4 means last 4 months starting 3 months ago)')
+
     parser.add_argument('--jql',
                         dest='jql',
                         default="",
