@@ -69,20 +69,23 @@ class State:
         with open(STATE_FILE, "wb") as fb:
             pickle.dump(self, fb)
 
-    def do_and_print_quality_check(self):
-        """Output some info about outliers"""
-        negative_cycle_time = []
-        for v in self.cycle_time_per_type.values():
-            for item in v:
-                if item[1] <= 0:
-                    negative_cycle_time.append(item[0])
+    def print_outside_sprint_stats(self):
+        """Prints stats for items worked outside of sprints"""
+        if not self.outside_sprint_per_type:
+            return
 
-        if len(negative_cycle_time) > 0:
-            print("Weird data:")
-            print("    Cycle time <= 0: ", end="", flush=True)
-            for item in negative_cycle_time:
-                print(f"{item} ", end="", flush=True)
-            print()
+        print("Items worked outside of sprints:")
+        total_outside_sprint = sum(len(issues) for issues in self.outside_sprint_per_type.values())
+        print(f"Total items: {total_outside_sprint}")
+        print()
+
+        for issue_type, issues in self.outside_sprint_per_type.items():
+            print(f"{issue_type} ({len(issues)}):")
+            display_issues = issues[:10]
+            for issue in display_issues:
+                print(f"    {issue}")
+            if len(issues) > 10:
+                print(f"    ... and {len(issues) - 10} more")
             print()
 
     def print_stats(self):
@@ -128,26 +131,6 @@ class State:
 
         print()
         self.print_outside_sprint_stats()
-        self.do_and_print_quality_check()
-
-    def print_outside_sprint_stats(self):
-        """Prints stats for items worked outside of sprints"""
-        if not self.outside_sprint_per_type:
-            return
-
-        print("Items worked outside of sprints:")
-        total_outside_sprint = sum(len(issues) for issues in self.outside_sprint_per_type.values())
-        print(f"Total items: {total_outside_sprint}")
-        print()
-
-        for issue_type, issues in self.outside_sprint_per_type.items():
-            print(f"{issue_type} ({len(issues)}):")
-            display_issues = issues[:10]
-            for issue in display_issues:
-                print(f"    {issue}")
-            if len(issues) > 10:
-                print(f"    ... and {len(issues) - 10} more")
-            print()
 
     @staticmethod
     def load_state():
