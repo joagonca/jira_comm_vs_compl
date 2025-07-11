@@ -12,7 +12,6 @@
 
 * **Committed vs. Delivered:** Grouped by all issues or story points
 * **Average cycle time:** Grouped per issue type, with top and bottom 1%, and standard deviation
-* **Outside Sprint Work:** Items that transitioned to In Progress, Resolved, or Closed outside of any sprint, grouped by issue type
 
 ## Features
 
@@ -22,7 +21,6 @@
 *   **Time Skew Analysis:** Analyze data over a configurable time period (e.g., the last two months).
 *   **Interval Analysis:** Analyze data over a specific time interval with start offset (e.g., last 4 months starting 3 months ago).
 *   **Custom JQL Queries:**  Support for providing custom JQL queries for advanced filtering and data retrieval.
-*   **Outside Sprint Detection:** Identifies and reports items that were worked on outside of any sprint timeframe.
 
 ## Installation
 
