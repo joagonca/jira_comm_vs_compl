@@ -24,7 +24,6 @@ class IssueInfo:
         self.issue_type = issue_type
         self.cycle_time = cycle_time
         self.valid = valid
-        self.outside_sprint_transitions = False
 
 class JiraTools:
     """Class that handles everything JIRA"""
