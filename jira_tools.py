@@ -192,7 +192,6 @@ class JiraTools:
         pending_start = None
         work_start = None
         work_end = None
-        outside_sprint_transitions = False
 
         for t in transitions:
             if t['to'] == "In Progress":
@@ -203,20 +202,10 @@ class JiraTools:
                 if t['state'] == "CLOSED":
                     consider = True
 
-                if t['sprint'] is None:
-                    outside_sprint_transitions = True
-
             if t['to'] == "Resolved":
                 end_sprint = t['sprint']
                 work_end = t['timestamp']
                 consider = True
-
-                if t['sprint'] is None:
-                    outside_sprint_transitions = True
-
-            if t['to'] == "Closed":
-                if t['sprint'] is None:
-                    outside_sprint_transitions = True
 
             if t['to'] == "Pending":
                 pending_start = t['timestamp']
@@ -235,7 +224,5 @@ class JiraTools:
             issue_info.cycle_time = cycle_time
             issue_info.delivered_in_sprint = start_sprint == end_sprint
             issue_info.valid = True
-
-        issue_info.outside_sprint_transitions = outside_sprint_transitions
 
         return issue_info
