@@ -37,14 +37,19 @@ async def main():
 
     state = State.load_state()
     if state is not None:
-        issues = state.issues
-        print("Loaded state!")
+        if state.command_matches(args):
+            issues = state.issues
+            print("Loaded state!")
+        else:
+            print("Command differs from saved state. Starting fresh...")
+            State.clear_state()
+            state = None
 
     try:
         if state is None:
             print("Fetching issues...")
             issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
-            state = State(issues)
+            state = State(issues, args)
 
         tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
 

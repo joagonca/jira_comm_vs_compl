@@ -13,13 +13,14 @@ STATE_FILE = ".state"
 
 class State:
     """Class to store current state"""
-    def __init__(self, iss):
+    def __init__(self, iss, command_args=None):
         self.issues = iss
         self.delivered = self.carryover = 0
         self.delivered_sp = self.carryover_sp = 0
         self.parsed_issues = {}
         self.cycle_time_per_type = {}
         self.cycle_time_per_sp = {}
+        self.command_args = command_args
 
     def add_delivered(self, story_points):
         """Add a delivered issue"""
@@ -47,6 +48,20 @@ class State:
     def add_parsed_issue(self, issue_key):
         """Adds a parsed issue to the dict"""
         self.parsed_issues[issue_key] = True
+
+    def command_matches(self, current_args):
+        """Check if current command arguments match the saved ones"""
+        if self.command_args is None:
+            return False
+        
+        # Compare the relevant arguments that affect the data collection
+        relevant_attrs = ['url', 'project', 'teams', 'skew', 'interval', 'jql']
+        
+        for attr in relevant_attrs:
+            if getattr(current_args, attr, None) != getattr(self.command_args, attr, None):
+                return False
+        
+        return True
 
     def get_total_valid_issues(self):
         """Returns a count of the total of valid issues"""
