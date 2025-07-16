@@ -93,7 +93,7 @@ class JiraTools:
         if custom_jql != "":
             jql = f"{custom_jql}{teams_str}{skew_str}"
         else:
-            jql = f"project={project_key} AND type in (Story, Defect, Task) AND assignee is not EMPTY{teams_str}{skew_str}"
+            jql = f"project={project_key} AND type in (Story, Defect, Bug, Task) AND assignee is not EMPTY{teams_str}{skew_str}"
 
         while start_at < total:
             response = await self.jira_request(issues_url,
