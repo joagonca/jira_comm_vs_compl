@@ -33,6 +33,7 @@ class JiraTools:
         self.url = url
         self.proxies = proxies
         self.debug = debug
+        self.max_concurrency = max_concurrency
         self.semaphore = asyncio.Semaphore(max_concurrency)
 
     def store_debug_info(self, issue, data):
@@ -43,7 +44,7 @@ class JiraTools:
 
     async def jira_request(self, url, method='GET', data=None):
         """Generic function to call JIRA APIs"""
-        retries = 3
+        retries = 3 * self.max_concurrency
         async with self.semaphore:
             async with httpx.AsyncClient(proxy=self.proxies, timeout=60, auth=(self.user, self.password)) as client:
                 for attempt in range(retries):
