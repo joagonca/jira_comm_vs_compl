@@ -19,11 +19,9 @@ async def main():
 
     jira_url = args.url
 
-    jira_username = ""
-    jira_password = ""
+    jira_token = ""
     with open(args.secret, encoding='utf-8') as f:
-        jira_username = f.readline().strip()
-        jira_password = f.readline().strip()
+        jira_token = f.readline().strip()
 
     teams_string = ""
     teams_as_file = Path(args.teams)
@@ -33,7 +31,7 @@ async def main():
     else:
         teams_string = args.teams
 
-    jira = JiraTools(jira_username, jira_password, jira_url, args.proxy, args.debug)
+    jira = JiraTools(jira_token, jira_url, args.proxy, args.debug)
 
     state = State.load_state()
     if state is not None:

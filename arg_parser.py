@@ -29,7 +29,7 @@ def create_argument_parser():
     parser.add_argument('-s', '--secret',
                         dest='secret',
                         required=True,
-                        help='file with your user and password information (1st line: user 2nd line: password)')
+                        help='file with your JIRA API token (single line)')
 
     parser.add_argument('-p', '--project',
                         dest='project',

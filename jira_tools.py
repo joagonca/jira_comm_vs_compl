@@ -27,9 +27,8 @@ class IssueInfo:
 
 class JiraTools:
     """Class that handles everything JIRA"""
-    def __init__(self, user, password, url, proxies, debug, max_concurrency=5):
-        self.user = user
-        self.password = password
+    def __init__(self, token, url, proxies, debug, max_concurrency=5):
+        self.token = token
         self.url = url
         self.proxies = proxies
         self.debug = debug
@@ -46,14 +45,18 @@ class JiraTools:
         """Generic function to call JIRA APIs"""
         retries = 3 * self.max_concurrency
         async with self.semaphore:
-            async with httpx.AsyncClient(proxy=self.proxies, timeout=60, auth=(self.user, self.password)) as client:
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.token}'
+            }
+            async with httpx.AsyncClient(proxy=self.proxies, timeout=60) as client:
                 for attempt in range(retries):
                     try:
                         response = await client.request(
                             method,
                             url,
                             json=data,
-                            headers={'Content-Type': 'application/json'}
+                            headers=headers
                         )
 
                         response.raise_for_status()

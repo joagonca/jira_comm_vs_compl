@@ -47,11 +47,16 @@
 
 ## Secret File Format
 
-The secret file should contain your JIRA username on the first line and your JIRA password on the second line. For example:
+The secret file should contain your JIRA API token on a single line. For example:
 ```
-your_username
-your_password
+your_api_token
 ```
+
+To create a JIRA API token:
+1. Go to your Atlassian account settings: https://id.atlassian.com/manage-profile/security/api-tokens
+2. Click "Create API token"
+3. Give it a label and copy the generated token
+4. Save the token in your secret file
 
 ## Usage
 
@@ -66,7 +71,7 @@ options:
   --debug               Enable debug mode for API calls
   --proxy PROXY         If a proxy is to be used to reach out to JIRA
   -u, --url URL         JIRA API URL
-  -s, --secret SECRET   file with your user and password information (1st line: user 2nd line: password)
+  -s, --secret SECRET   file with your JIRA API token (single line)
   -p, --project PROJECT
                         JIRA Project key to target
   -t, --teams TEAMS     JIRA Teams to filter (either a file or a string)
