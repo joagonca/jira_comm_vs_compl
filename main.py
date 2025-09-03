@@ -63,6 +63,9 @@ async def main():
                 if issue_info.cycle_time > 0:
                     state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points)
 
+            if issue_info.in_progress_days is not None:
+                state.add_aging_item(issue_info.key, issue_info.issue_type, issue_info.in_progress_days, issue_info.is_aged, issue_info.story_points)
+
             state.add_parsed_issue(issue_info.key)
             state.persist_state()
 

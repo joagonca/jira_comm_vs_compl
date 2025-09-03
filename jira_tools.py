@@ -9,6 +9,8 @@ import os
 
 import httpx
 
+from utils import AGING_THRESHOLDS
+
 MAX_RESULTS = 1000
 SPRINT_CUSTOM_FIELD = "customfield_10000"
 STORY_POINTS_CUSTOM_FIELD = "customfield_10006"
@@ -17,13 +19,15 @@ DEBUG_DIR = "debug"
 
 class IssueInfo:
     """Class to return issue info"""
-    def __init__(self, key=None, delivered_in_sprint=None, story_points=None, issue_type=None, cycle_time=None, valid=True):
+    def __init__(self, key=None, delivered_in_sprint=None, story_points=None, issue_type=None, cycle_time=None, valid=True, in_progress_days=None, is_aged=False):
         self.key = key
         self.delivered_in_sprint = delivered_in_sprint
         self.story_points = story_points
         self.issue_type = issue_type
         self.cycle_time = cycle_time
         self.valid = valid
+        self.in_progress_days = in_progress_days
+        self.is_aged = is_aged
 
 class JiraTools:
     """Class that handles everything JIRA"""
@@ -195,10 +199,13 @@ class JiraTools:
         pending_start = None
         work_start = None
         work_end = None
+        last_in_progress_start = None
+        current_status = None
 
         for t in transitions:
             if t['to'] == "In Progress":
                 start_sprint = t['sprint']
+                last_in_progress_start = t['timestamp']
                 if work_start is None:
                     work_start = t['timestamp']
 
@@ -214,6 +221,8 @@ class JiraTools:
                 pending_start = t['timestamp']
             if t['from'] == "Pending":
                 pending_duration += (t['timestamp'] - pending_start).total_seconds()
+            
+            current_status = t['to']
 
         story_points = changelog_response["fields"].get(STORY_POINTS_CUSTOM_FIELD, 1.0)
         if story_points is None:
@@ -221,11 +230,29 @@ class JiraTools:
 
         cycle_time = self.calculate_cycle_time(work_start, work_end, pending_duration)
 
+        # Calculate aging for items currently "In Progress"
+        in_progress_days = None
+        is_aged = False
+        if current_status == "In Progress" and last_in_progress_start is not None:
+            now = datetime.now().replace(tzinfo=None)
+            in_progress_duration = (now - last_in_progress_start.replace(tzinfo=None)).total_seconds()
+            in_progress_days = in_progress_duration / (24 * 3600)
+            
+            threshold = AGING_THRESHOLDS.get(issue_type, 14)
+            is_aged = in_progress_days > threshold
+
         if start_sprint != "" and consider:
             issue_info.story_points = story_points
             issue_info.issue_type = issue_type
             issue_info.cycle_time = cycle_time
             issue_info.delivered_in_sprint = start_sprint == end_sprint
             issue_info.valid = True
+
+        # Set aging info for all issues (whether valid or not) if currently in progress
+        if current_status == "In Progress":
+            issue_info.in_progress_days = in_progress_days
+            issue_info.is_aged = is_aged
+            issue_info.issue_type = issue_type
+            issue_info.story_points = story_points
 
         return issue_info

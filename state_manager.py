@@ -7,7 +7,7 @@ import pickle
 
 import numpy
 
-from utils import seconds_to_pretty
+from utils import seconds_to_pretty, AGING_THRESHOLDS
 
 STATE_FILE = ".state"
 
@@ -20,6 +20,8 @@ class State:
         self.parsed_issues = {}
         self.cycle_time_per_type = {}
         self.cycle_time_per_sp = {}
+        self.aging_items = []
+        self.effort_per_type = {}
         self.command_args = command_args
 
     def add_delivered(self, story_points):
@@ -39,6 +41,11 @@ class State:
         else:
             self.cycle_time_per_type[issue_type] = [[issue_key, duration]]
 
+        if issue_type in self.effort_per_type:
+            self.effort_per_type[issue_type] += duration
+        else:
+            self.effort_per_type[issue_type] = duration
+
         sp_key = -1 if story_points is None or story_points == 0 else int(story_points)
         if sp_key in self.cycle_time_per_sp:
             self.cycle_time_per_sp[sp_key].append([issue_key, duration])
@@ -49,12 +56,21 @@ class State:
         """Adds a parsed issue to the dict"""
         self.parsed_issues[issue_key] = True
 
+    def add_aging_item(self, issue_key, issue_type, in_progress_days, is_aged, story_points):
+        """Adds an aging item to tracking"""
+        self.aging_items.append({
+            'key': issue_key,
+            'type': issue_type,
+            'days': in_progress_days,
+            'is_aged': is_aged,
+            'story_points': story_points
+        })
+
     def command_matches(self, current_args):
         """Check if current command arguments match the saved ones"""
         if self.command_args is None:
             return False
         
-        # Compare the relevant arguments that affect the data collection
         relevant_attrs = ['url', 'project', 'teams', 'skew', 'interval', 'jql']
         
         for attr in relevant_attrs:
@@ -85,6 +101,8 @@ class State:
         print(f"Valid issues: {self.get_total_valid_issues()}")
         print(f"Ratio of Comm vs. Delv. (by issue count): {(ratio_issue * 100):.2f}%")
         print(f"Ratio of Comm vs. Delv. (by story points): {(ratio_sp * 100):.2f}%")
+
+        self.print_aging_report()
 
         print()
         print("Average cycle time:")
@@ -118,6 +136,58 @@ class State:
             print(f"{sp_display} ({len(values)}): {seconds_to_pretty(average)} (SD: {seconds_to_pretty(std_dev)})")
 
         print()
+
+        self.print_rework_ratio()
+
+    def print_rework_ratio(self):
+        """Prints rework ratio (fixing vs building new)"""
+        defect_effort = self.effort_per_type.get("Defect", 0) + self.effort_per_type.get("Bug", 0)
+        
+        story_effort = self.effort_per_type.get("Story", 0)
+        total_effort = defect_effort + story_effort
+        
+        if total_effort > 0:
+            rework_ratio = (defect_effort / total_effort) * 100
+            print(f"Rework Ratio (fixing vs. building new): {rework_ratio:.2f}%")
+        else:
+            print("Rework Ratio: No data available (no Stories, Defects, or Bugs with cycle time)")
+
+    def print_aging_report(self):
+        """Prints work item aging report"""
+        if not self.aging_items:
+            print()
+            print("Work Item Aging: No items currently in progress")
+            return
+
+        print()
+        print("Work Item Aging (items currently 'In Progress'):")
+        
+        aged_items = [item for item in self.aging_items if item['is_aged']]
+        total_in_progress = len(self.aging_items)
+        
+        if aged_items:
+            print(f"  Total aged items: {len(aged_items)} out of {total_in_progress} in progress")
+            print()
+            
+            aged_by_type = {}
+            for item in aged_items:
+                item_type = item['type']
+                if item_type not in aged_by_type:
+                    aged_by_type[item_type] = []
+                aged_by_type[item_type].append(item)
+            
+            for item_type, items in aged_by_type.items():
+                print(f"  {item_type} (threshold: {self.get_aging_threshold(item_type)} days):")
+                for item in sorted(items, key=lambda x: x['days'], reverse=True):
+                    print(f"    {item['key']}: {item['days']:.1f} days in progress")
+                print()
+        else:
+            print(f"  No aged items found ({total_in_progress} items in progress)")
+            print()
+
+    def get_aging_threshold(self, issue_type):
+        """Gets aging threshold for issue type"""
+        return AGING_THRESHOLDS.get(issue_type, 14)
 
     @staticmethod
     def load_state():
