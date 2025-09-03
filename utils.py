@@ -4,6 +4,13 @@ Random utilities
 
 import math
 
+AGING_THRESHOLDS = {
+    "Story": 14,
+    "Defect": 7, 
+    "Bug": 7,
+    "Task": 10
+}
+
 def seconds_to_pretty(seconds):
     """Makes seconds look pretty in the console"""
     days = math.ceil(seconds // (24 * 3600))
