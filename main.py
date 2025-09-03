@@ -34,23 +34,26 @@ async def main():
     jira = JiraTools(jira_token, jira_url, args.proxy, args.debug)
 
     state = State.load_state()
-    if state is not None:
-        if state.command_matches(args):
-            issues = state.issues
-            print("Loaded state!")
-        else:
-            print("Command differs from saved state. Starting fresh...")
-            State.clear_state()
-            state = None
+    if state is not None and state.command_matches(args):
+        issues = state.issues
+        print("Loaded state!")
+    elif state is not None:
+        print("Command differs from saved state. Starting fresh...")
+        State.clear_state()
+        state = None
+
+    if state is None:
+        print("Fetching issues...")
+        try:
+            issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
+        except Exception as e: # pylint: disable=broad-except
+            print(f"Error fetching issues from Jira: {e}")
+            return
+        state = State(issues, args)
+
+    tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
 
     try:
-        if state is None:
-            print("Fetching issues...")
-            issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
-            state = State(issues, args)
-
-        tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
-
         for routine in tqdm(asyncio.as_completed(tasks), initial=len(issues)-len(tasks), total=len(issues), file=sys.stdout):
             issue_info = await routine
 
@@ -68,15 +71,15 @@ async def main():
 
             state.add_parsed_issue(issue_info.key)
             state.persist_state()
-
-        if state.get_total_valid_issues() == 0:
-            print("No issues found.")
-        else:
-            state.print_stats()
-            State.clear_state()
-
     except Exception as e: # pylint: disable=broad-except
-        print(f"Error making request to Jira: {e}")
+        print(f"Error processing issues: {e}")
+        return
+
+    if state.get_total_valid_issues() == 0:
+        print("No issues found.")
+    else:
+        state.print_stats()
+        State.clear_state()
 
 if __name__ == "__main__":
     asyncio.run(main())
