@@ -7,9 +7,7 @@ import pickle
 
 import numpy
 
-from utils import seconds_to_pretty, AGING_THRESHOLDS
-
-STATE_FILE = ".state"
+from utils import seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG
 
 class State:
     """Class to store current state"""
@@ -89,7 +87,7 @@ class State:
 
     def persist_state(self):
         """Persists state to disk"""
-        with open(STATE_FILE, "wb") as fb:
+        with open(JIRA_CONFIG['STATE_FILE'], "wb") as fb:
             pickle.dump(self, fb)
 
     def print_stats(self):
@@ -192,9 +190,10 @@ class State:
     @staticmethod
     def load_state():
         """Load state from disk"""
-        existing_state = Path(STATE_FILE)
+        state_file = JIRA_CONFIG['STATE_FILE']
+        existing_state = Path(state_file)
         if existing_state.is_file():
-            with open(".state", "rb") as f:
+            with open(state_file, "rb") as f:
                 return pickle.load(f)
 
         return None
@@ -202,4 +201,4 @@ class State:
     @staticmethod
     def clear_state():
         """Deletes state file"""
-        Path(STATE_FILE).unlink()
+        Path(JIRA_CONFIG['STATE_FILE']).unlink()

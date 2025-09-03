@@ -1,8 +1,20 @@
 """
-Random utilities
+Random utilities and configuration
 """
 
 import math
+
+JIRA_CONFIG = {
+    'MAX_RESULTS': 1000,
+    'SPRINT_CUSTOM_FIELD': "customfield_10000",
+    'STORY_POINTS_CUSTOM_FIELD': "customfield_10006",
+    'DEBUG_DIR': "debug",
+    'STATE_FILE': ".state",
+    'DEFAULT_CONCURRENCY': 5,
+    'REQUEST_TIMEOUT': 60,
+    'RETRY_COUNT_MULTIPLIER': 3,
+    'RETRY_DELAY': 30
+}
 
 AGING_THRESHOLDS = {
     "Story": 14,

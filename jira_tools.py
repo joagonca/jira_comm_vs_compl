@@ -9,13 +9,7 @@ import os
 
 import httpx
 
-from utils import AGING_THRESHOLDS
-
-MAX_RESULTS = 1000
-SPRINT_CUSTOM_FIELD = "customfield_10000"
-STORY_POINTS_CUSTOM_FIELD = "customfield_10006"
-
-DEBUG_DIR = "debug"
+from utils import AGING_THRESHOLDS, JIRA_CONFIG
 
 class IssueInfo:
     """Class to return issue info"""
@@ -31,29 +25,30 @@ class IssueInfo:
 
 class JiraTools:
     """Class that handles everything JIRA"""
-    def __init__(self, token, url, proxies, debug, max_concurrency=5):
+    def __init__(self, token, url, proxies, debug, max_concurrency=None):
         self.token = token
         self.url = url
         self.proxies = proxies
         self.debug = debug
-        self.max_concurrency = max_concurrency
-        self.semaphore = asyncio.Semaphore(max_concurrency)
+        self.max_concurrency = max_concurrency or JIRA_CONFIG['DEFAULT_CONCURRENCY']
+        self.semaphore = asyncio.Semaphore(self.max_concurrency)
 
     def store_debug_info(self, issue, data):
         """Saves debug info to disk"""
-        os.makedirs(DEBUG_DIR, exist_ok=True)
-        with open(f"{DEBUG_DIR}/{issue}.json", "w", encoding="utf-8") as f:
+        debug_dir = JIRA_CONFIG['DEBUG_DIR']
+        os.makedirs(debug_dir, exist_ok=True)
+        with open(f"{debug_dir}/{issue}.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
     async def jira_request(self, url, method='GET', data=None):
         """Generic function to call JIRA APIs"""
-        retries = 3 * self.max_concurrency
+        retries = JIRA_CONFIG['RETRY_COUNT_MULTIPLIER'] * self.max_concurrency
         async with self.semaphore:
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {self.token}'
             }
-            async with httpx.AsyncClient(proxy=self.proxies, timeout=60) as client:
+            async with httpx.AsyncClient(proxy=self.proxies, timeout=JIRA_CONFIG['REQUEST_TIMEOUT']) as client:
                 for attempt in range(retries):
                     try:
                         response = await client.request(
@@ -72,7 +67,7 @@ class JiraTools:
 
                         print("\r" + " " * os.get_terminal_size()[0], end="", flush=True)
                         print(f"\rRetrying after error {exc.response.status_code}...", end="", flush=True)
-                        await asyncio.sleep(30)
+                        await asyncio.sleep(JIRA_CONFIG['RETRY_DELAY'])
 
     async def get_all_issues(self, project_key, teams, skew, interval, custom_jql):
         """Get all issues for a specific project"""
@@ -108,7 +103,7 @@ class JiraTools:
                                     'POST',
                                     data={
                                         'jql': jql,
-                                        'maxResults': MAX_RESULTS,
+                                        'maxResults': JIRA_CONFIG['MAX_RESULTS'],
                                         'startAt': start_at,
                                         'fields': [
                                             'key'
@@ -116,7 +111,7 @@ class JiraTools:
                                     })
 
             total = response['total']
-            start_at += MAX_RESULTS
+            start_at += JIRA_CONFIG['MAX_RESULTS']
 
             issues_combo =  issues_combo + response['issues']
 
@@ -156,23 +151,8 @@ class JiraTools:
 
         return total_seconds - weekend_seconds - pending_duration
 
-    async def check_issue_resolution_in_sprint(self, iss):
-        """Validates if issue was solved in the sprint"""
-        changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
-        changelog_response = await self.jira_request(changelog_url)
-        issue_type = changelog_response["fields"]["issuetype"]["name"]
-
-        issue_info = IssueInfo(key=iss["key"], valid=False)
-
-        if self.debug:
-            self.store_debug_info(iss["key"], changelog_response)
-
-        sprints_raw = changelog_response["fields"].get(SPRINT_CUSTOM_FIELD, [])
-        if sprints_raw is None:
-            return issue_info
-
-        parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
-
+    def parse_issue_transitions(self, changelog_response):
+        """Extract status transitions from changelog"""
         transitions = []
         for history in changelog_response["changelog"]["histories"]:
             timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z")
@@ -183,18 +163,35 @@ class JiraTools:
                         "to": item.get("toString"),
                         "timestamp": timestamp
                     })
+        return transitions
 
-        # Match each transition to a sprint
+    def match_transitions_to_sprints(self, transitions, parsed_sprints):
+        """Match each transition to a sprint based on timing"""
         for t in transitions:
             ts = t["timestamp"].replace(tzinfo=None)
             sprint = next((s for s in parsed_sprints if s.get("startDate") and s.get("endDate") and s["startDate"] <= ts <= s["endDate"]), None)
             t["state"] = sprint["state"] if sprint else None
             t["sprint"] = sprint["name"] if sprint else None
 
+    def calculate_aging_metrics(self, current_status, last_in_progress_start, issue_type):
+        """Calculate aging metrics for items currently in progress"""
+        if current_status != "In Progress" or last_in_progress_start is None:
+            return None, False
+
+        now = datetime.now().replace(tzinfo=None)
+        in_progress_duration = (now - last_in_progress_start.replace(tzinfo=None)).total_seconds()
+        in_progress_days = in_progress_duration / (24 * 3600)
+        
+        threshold = AGING_THRESHOLDS.get(issue_type, 14)
+        is_aged = in_progress_days > threshold
+        
+        return in_progress_days, is_aged
+
+    def determine_sprint_delivery(self, transitions):
+        """Determine sprint delivery status and timing from transitions"""
         start_sprint = ""
         end_sprint = ""
         consider = False
-
         pending_duration = 0
         pending_start = None
         work_start = None
@@ -224,32 +221,53 @@ class JiraTools:
             
             current_status = t['to']
 
-        story_points = changelog_response["fields"].get(STORY_POINTS_CUSTOM_FIELD, 1.0)
+        return {
+            'start_sprint': start_sprint,
+            'end_sprint': end_sprint,
+            'consider': consider,
+            'work_start': work_start,
+            'work_end': work_end,
+            'pending_duration': pending_duration,
+            'last_in_progress_start': last_in_progress_start,
+            'current_status': current_status
+        }
+
+    async def check_issue_resolution_in_sprint(self, iss):
+        """Validates if issue was solved in the sprint"""
+        changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
+        changelog_response = await self.jira_request(changelog_url)
+        issue_type = changelog_response["fields"]["issuetype"]["name"]
+
+        issue_info = IssueInfo(key=iss["key"], valid=False)
+
+        if self.debug:
+            self.store_debug_info(iss["key"], changelog_response)
+
+        sprints_raw = changelog_response["fields"].get(JIRA_CONFIG['SPRINT_CUSTOM_FIELD'], [])
+        if sprints_raw is None:
+            return issue_info
+
+        parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
+        transitions = self.parse_issue_transitions(changelog_response)
+        self.match_transitions_to_sprints(transitions, parsed_sprints)
+        
+        delivery_info = self.determine_sprint_delivery(transitions)
+        
+        story_points = changelog_response["fields"].get(JIRA_CONFIG['STORY_POINTS_CUSTOM_FIELD'], 1.0)
         if story_points is None:
             story_points = 1.0
 
-        cycle_time = self.calculate_cycle_time(work_start, work_end, pending_duration)
+        cycle_time = self.calculate_cycle_time(delivery_info['work_start'], delivery_info['work_end'], delivery_info['pending_duration'])
+        in_progress_days, is_aged = self.calculate_aging_metrics(delivery_info['current_status'], delivery_info['last_in_progress_start'], issue_type)
 
-        # Calculate aging for items currently "In Progress"
-        in_progress_days = None
-        is_aged = False
-        if current_status == "In Progress" and last_in_progress_start is not None:
-            now = datetime.now().replace(tzinfo=None)
-            in_progress_duration = (now - last_in_progress_start.replace(tzinfo=None)).total_seconds()
-            in_progress_days = in_progress_duration / (24 * 3600)
-            
-            threshold = AGING_THRESHOLDS.get(issue_type, 14)
-            is_aged = in_progress_days > threshold
-
-        if start_sprint != "" and consider:
+        if delivery_info['start_sprint'] != "" and delivery_info['consider']:
             issue_info.story_points = story_points
             issue_info.issue_type = issue_type
             issue_info.cycle_time = cycle_time
-            issue_info.delivered_in_sprint = start_sprint == end_sprint
+            issue_info.delivered_in_sprint = delivery_info['start_sprint'] == delivery_info['end_sprint']
             issue_info.valid = True
 
-        # Set aging info for all issues (whether valid or not) if currently in progress
-        if current_status == "In Progress":
+        if delivery_info['current_status'] == "In Progress":
             issue_info.in_progress_days = in_progress_days
             issue_info.is_aged = is_aged
             issue_info.issue_type = issue_type
