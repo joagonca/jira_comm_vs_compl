@@ -11,7 +11,13 @@
 ## Data calculated
 
 * **Committed vs. Delivered:** Grouped by all issues or story points
+* **Work Item Aging:** Track items currently "In Progress" for too long based on thresholds:
+  - Story: 14 days
+  - Defect: 7 days
+  - Bug: 7 days
+  - Task: 10 days
 * **Average cycle time:** Grouped per issue type, with top and bottom 1%, and standard deviation
+* **Rework Ratio:** Time spent fixing (defects/bugs) vs building new (stories)
 
 ## Features
 
