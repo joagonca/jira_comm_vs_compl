@@ -184,6 +184,9 @@ class State:
         print(colorize_metric_value("Monthly Commitment vs Delivery:", 'header'))
         
         sorted_months = sorted(self.monthly_metrics.keys())
+        ratios_by_issues = []
+        ratios_by_sp = []
+        
         for month_key in sorted_months:
             metrics = self.monthly_metrics[month_key]
             total_issues = metrics['delivered'] + metrics['carryover']
@@ -193,9 +196,50 @@ class State:
                 ratio_issue = metrics['delivered'] / total_issues
                 ratio_sp = (metrics['delivered_sp'] / total_sp) if total_sp > 0 else 0
                 
+                ratios_by_issues.append(ratio_issue)
+                ratios_by_sp.append(ratio_sp)
+                
                 print(f"  {colorize_metric_value(month_key, 'info')}:")
                 print(f"    Issues: {colorize_metric_value(total_issues, 'count')} - Ratio: {colorize_percentage(ratio_issue * 100)}")
                 print(f"    Story Points: {colorize_metric_value(total_sp, 'count')} - Ratio: {colorize_percentage(ratio_sp * 100)}")
+        
+        # Print trend analysis
+        if len(ratios_by_issues) >= 2:
+            issue_trend = self.calculate_linear_trend(ratios_by_issues)
+            sp_trend = self.calculate_linear_trend(ratios_by_sp)
+            
+            issue_arrow = self.get_trend_arrow(issue_trend)
+            sp_arrow = self.get_trend_arrow(sp_trend)
+            
+            print()
+            print(f"  Trend (Issues): {issue_arrow}")
+            print(f"  Trend (Story Points): {sp_arrow}")
+
+    def calculate_linear_trend(self, values):
+        """Calculate linear trend slope using numpy polyfit"""
+        if len(values) < 2:
+            return 0
+        
+        x_values = numpy.arange(len(values))  # 0, 1, 2, ..., n-1
+        y_values = numpy.array(values)
+        
+        # Use numpy's polyfit for linear regression (degree=1)
+        # Returns [slope, intercept]
+        try:
+            coefficients = numpy.polyfit(x_values, y_values, 1)
+            return coefficients[0]  # Return slope
+        except numpy.RankWarning:
+            # Handle case where all y-values are the same
+            return 0
+
+    def get_trend_arrow(self, slope):
+        """Get colored arrow based on trend slope"""
+        if slope > 0.01:  # Significant upward trend
+            return colorize_metric_value("↗", 'success')
+        elif slope < -0.01:  # Significant downward trend  
+            return colorize_metric_value("↘", 'error')
+        else:  # Relatively flat
+            return colorize_metric_value("→", 'info')
 
     def print_monthly_rework_ratios(self):
         """Prints monthly rework ratio breakdown"""
