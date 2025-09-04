@@ -11,6 +11,8 @@
 ## Data calculated
 
 * **Committed vs. Delivered:** Grouped by all issues or story points
+  - **Monthly Breakdown:** Shows commitment vs delivery ratios for each month
+  - **Trend Analysis:** Mathematical trend indicators (↗ improving, ↘ declining, → stable)
 * **Work Item Aging:** Track items currently "In Progress" for too long based on thresholds:
   - Story: 14 days
   - Defect: 7 days
@@ -18,6 +20,8 @@
   - Task: 10 days
 * **Average cycle time:** Grouped per issue type, with top and bottom 1%, and standard deviation
 * **Rework Ratio:** Time spent fixing (defects/bugs) vs building new (stories)
+  - **Monthly Breakdown:** Shows rework ratios for each month
+  - **Trend Analysis:** Mathematical trend indicators for rework patterns over time
 
 ## Features
 
@@ -26,6 +30,10 @@
 *   **Team Filtering:**  Filter issues by JIRA team(s).
 *   **Time Skew Analysis:** Analyze data over a configurable time period (e.g., the last two months).
 *   **Interval Analysis:** Analyze data over a specific time interval with start offset (e.g., last 4 months starting 3 months ago).
+*   **Monthly Partitioning:** Queries are automatically partitioned by month for precise monthly metrics.
+*   **Progress Indicators:** Visual feedback during monthly query execution with format `[1/3]`.
+*   **Trend Analysis:** Mathematical linear regression analysis using numpy for commitment and rework trends.
+*   **Colorized Output:** Color-coded arrows and percentages for easy trend visualization.
 *   **Custom JQL Queries:**  Support for providing custom JQL queries for advanced filtering and data retrieval.
 
 ## Installation
@@ -100,6 +108,40 @@ $ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest
 ```bash
 $ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -s secret.txt -i 3 -d 4
 ```
+
+## Sample Output
+
+The tool now provides enhanced monthly breakdowns with trend analysis:
+
+```
+Monthly Commitment vs Delivery:
+  2024-07:
+    Issues: 25 - Ratio: 68.0%
+    Story Points: 45 - Ratio: 71.1%
+  2024-08:
+    Issues: 30 - Ratio: 76.7%
+    Story Points: 52 - Ratio: 78.8%
+  2024-09:
+    Issues: 28 - Ratio: 82.1%
+    Story Points: 48 - Ratio: 83.3%
+
+  Trend (Issues): ↗
+  Trend (Story Points): ↗
+
+Monthly Rework Ratios (fixing vs building new):
+  2024-07: 25.3%
+  2024-08: 22.1%
+  2024-09: 18.7%
+
+  Trend: ↘
+```
+
+**Trend Indicators:**
+- ↗ Green up arrow: Improving performance (better commitment/delivery, higher rework)
+- ↘ Red down arrow: Declining performance (worse commitment/delivery, lower rework) 
+- ↘ Green down arrow: Improving rework (less fixing, more building)
+- ↗ Red up arrow: Worsening rework (more fixing, less building)
+- → Gray right arrow: Stable/flat trends
 
 ## Contributing 
 
