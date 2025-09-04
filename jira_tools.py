@@ -89,12 +89,22 @@ class JiraTools:
             monthly_partitions = [None]
         
         # Fetch issues for each monthly partition
-        for month_filter in monthly_partitions:
+        total_partitions = len(monthly_partitions)
+        for i, month_filter in enumerate(monthly_partitions, 1):
+            if total_partitions > 1:
+                month_display = month_filter['month_key'] if month_filter else 'all'
+                print(f"\rFetching issues for {month_display} [{i}/{total_partitions}]...", end="", flush=True)
+            
             month_issues = await self.get_issues_for_month(project_key, teams, custom_jql, month_filter)
             # Add month info to each issue for tracking
             for issue in month_issues:
                 issue['query_month'] = month_filter['month_key'] if month_filter else 'all'
             issues_combo.extend(month_issues)
+        
+        # Clear the progress line after completion
+        if total_partitions > 1:
+            print("\r" + " " * 50, end="", flush=True)
+            print("\rFetching issues completed.", flush=True)
         
         return issues_combo
 
