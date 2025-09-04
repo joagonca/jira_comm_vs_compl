@@ -59,12 +59,12 @@ async def main():
 
             if issue_info.valid:
                 if issue_info.delivered_in_sprint:
-                    state.add_delivered(issue_info.story_points)
+                    state.add_delivered(issue_info.story_points, issue_info.query_month)
                 else:
-                    state.add_carryover(issue_info.story_points)
+                    state.add_carryover(issue_info.story_points, issue_info.query_month)
 
                 if issue_info.cycle_time > 0:
-                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points)
+                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points, issue_info.query_month)
 
             if issue_info.in_progress_days is not None:
                 state.add_aging_item(issue_info.key, issue_info.issue_type, issue_info.in_progress_days, issue_info.is_aged, issue_info.story_points)
