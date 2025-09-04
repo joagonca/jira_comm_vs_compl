@@ -77,3 +77,21 @@ def colorize_metric_value(value, metric_type='default'):
 def colorize_issue_key(key):
     """Colorize issue key"""
     return f"{Fore.CYAN}{Style.BRIGHT}{key}{Style.RESET_ALL}"
+
+def colorize_trend_arrow(slope, threshold=0.01):
+    """Colorize trend arrow based on slope (for commitment/delivery trends)"""
+    if slope > threshold:  # Significant upward trend (good)
+        return f"{COLOR_THEMES['success']}↗{Style.RESET_ALL}"
+    elif slope < -threshold:  # Significant downward trend (bad)
+        return f"{COLOR_THEMES['error']}↘{Style.RESET_ALL}"
+    else:  # Relatively flat
+        return f"{COLOR_THEMES['info']}→{Style.RESET_ALL}"
+
+def colorize_rework_trend_arrow(slope, threshold=1.0):
+    """Colorize rework trend arrow based on slope (inverted logic - lower rework is better)"""
+    if slope > threshold:  # Significant upward trend in rework (bad)
+        return f"{COLOR_THEMES['error']}↗{Style.RESET_ALL}"
+    elif slope < -threshold:  # Significant downward trend in rework (good)
+        return f"{COLOR_THEMES['success']}↘{Style.RESET_ALL}"
+    else:  # Relatively flat
+        return f"{COLOR_THEMES['info']}→{Style.RESET_ALL}"

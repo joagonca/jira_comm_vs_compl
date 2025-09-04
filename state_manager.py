@@ -8,7 +8,8 @@ import pickle
 import numpy
 
 from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG, 
-                   colorize_percentage, colorize_metric_value, colorize_issue_key, colorize_aging_status)
+                   colorize_percentage, colorize_metric_value, colorize_issue_key, colorize_aging_status,
+                   colorize_trend_arrow, colorize_rework_trend_arrow)
 
 class State:
     """Class to store current state"""
@@ -22,18 +23,42 @@ class State:
         self.aging_items = []
         self.effort_per_type = {}
         self.command_args = command_args
+        
+        # Monthly tracking for commitment vs delivery and rework
+        self.monthly_metrics = {}  # key: month_key, value: {delivered, carryover, delivered_sp, carryover_sp, effort_per_type}
 
-    def add_delivered(self, story_points):
+    def add_delivered(self, story_points, month_key=None):
         """Add a delivered issue"""
         self.delivered += 1
         self.delivered_sp += story_points
+        
+        if month_key:
+            self.ensure_monthly_metrics(month_key)
+            self.monthly_metrics[month_key]['delivered'] += 1
+            self.monthly_metrics[month_key]['delivered_sp'] += story_points
 
-    def add_carryover(self, story_points):
+    def add_carryover(self, story_points, month_key=None):
         """Add a carryover issue"""
         self.carryover += 1
         self.carryover_sp += story_points
+        
+        if month_key:
+            self.ensure_monthly_metrics(month_key)
+            self.monthly_metrics[month_key]['carryover'] += 1
+            self.monthly_metrics[month_key]['carryover_sp'] += story_points
 
-    def add_issue_cycle_time(self, issue_key, issue_type, duration, story_points=None):
+    def ensure_monthly_metrics(self, month_key):
+        """Ensure monthly metrics entry exists"""
+        if month_key not in self.monthly_metrics:
+            self.monthly_metrics[month_key] = {
+                'delivered': 0,
+                'carryover': 0,
+                'delivered_sp': 0,
+                'carryover_sp': 0,
+                'effort_per_type': {}
+            }
+
+    def add_issue_cycle_time(self, issue_key, issue_type, duration, story_points=None, month_key=None):
         """Adds the cycle time of an issue"""
         if issue_type in self.cycle_time_per_type:
             self.cycle_time_per_type[issue_type].append([issue_key, duration])
@@ -44,6 +69,14 @@ class State:
             self.effort_per_type[issue_type] += duration
         else:
             self.effort_per_type[issue_type] = duration
+
+        # Track monthly effort for rework ratio
+        if month_key:
+            self.ensure_monthly_metrics(month_key)
+            if issue_type in self.monthly_metrics[month_key]['effort_per_type']:
+                self.monthly_metrics[month_key]['effort_per_type'][issue_type] += duration
+            else:
+                self.monthly_metrics[month_key]['effort_per_type'][issue_type] = duration
 
         sp_key = -1 if story_points is None or story_points == 0 else int(story_points)
         if sp_key in self.cycle_time_per_sp:
@@ -93,6 +126,7 @@ class State:
 
     def print_stats(self):
         """Prints current stats"""
+        # Overall summary
         ratio_issue = self.delivered / self.get_total_valid_issues()
         ratio_sp = (self.delivered_sp / self.get_total_sps()) if self.get_total_sps() > 0 else 0
 
@@ -101,8 +135,14 @@ class State:
         print(f"Ratio of Comm vs. Delv. (by issue count): {colorize_percentage(ratio_issue * 100)}")
         print(f"Ratio of Comm vs. Delv. (by story points): {colorize_percentage(ratio_sp * 100)}")
 
+        # Monthly breakdown for commitment vs delivery and rework
+        if self.monthly_metrics:
+            self.print_monthly_commitment_delivery()
+            self.print_monthly_rework_ratios()
+
         self.print_aging_report()
 
+        # Combined cycle time metrics (not partitioned by month as requested)
         print()
         print(colorize_metric_value("Average cycle time:", 'header'))
         for k, v in self.cycle_time_per_type.items():
@@ -136,7 +176,91 @@ class State:
 
         print()
 
+        # Overall rework ratio (for comparison with monthly breakdown)
         self.print_rework_ratio()
+
+    def print_monthly_commitment_delivery(self):
+        """Prints monthly commitment vs delivery breakdown"""
+        print()
+        print(colorize_metric_value("Monthly Commitment vs Delivery:", 'header'))
+        
+        sorted_months = sorted(self.monthly_metrics.keys())
+        ratios_by_issues = []
+        ratios_by_sp = []
+        
+        for month_key in sorted_months:
+            metrics = self.monthly_metrics[month_key]
+            total_issues = metrics['delivered'] + metrics['carryover']
+            total_sp = metrics['delivered_sp'] + metrics['carryover_sp']
+            
+            if total_issues > 0:
+                ratio_issue = metrics['delivered'] / total_issues
+                ratio_sp = (metrics['delivered_sp'] / total_sp) if total_sp > 0 else 0
+                
+                ratios_by_issues.append(ratio_issue)
+                ratios_by_sp.append(ratio_sp)
+                
+                print(f"  {colorize_metric_value(month_key, 'info')}:")
+                print(f"    Issues: {colorize_metric_value(total_issues, 'count')} - Ratio: {colorize_percentage(ratio_issue * 100)}")
+                print(f"    Story Points: {colorize_metric_value(total_sp, 'count')} - Ratio: {colorize_percentage(ratio_sp * 100)}")
+        
+        # Print trend analysis
+        if len(ratios_by_issues) >= 2:
+            issue_trend = self.calculate_linear_trend(ratios_by_issues)
+            sp_trend = self.calculate_linear_trend(ratios_by_sp)
+            
+            issue_arrow = colorize_trend_arrow(issue_trend)
+            sp_arrow = colorize_trend_arrow(sp_trend)
+            
+            print()
+            print(f"  Trend (Issues): {issue_arrow}")
+            print(f"  Trend (Story Points): {sp_arrow}")
+
+    def calculate_linear_trend(self, values):
+        """Calculate linear trend slope using numpy polyfit"""
+        if len(values) < 2:
+            return 0
+        
+        x_values = numpy.arange(len(values))  # 0, 1, 2, ..., n-1
+        y_values = numpy.array(values)
+        
+        # Use numpy's polyfit for linear regression (degree=1)
+        # Returns [slope, intercept]
+        try:
+            coefficients = numpy.polyfit(x_values, y_values, 1)
+            return coefficients[0]  # Return slope
+        except numpy.RankWarning:
+            # Handle case where all y-values are the same
+            return 0
+
+    def print_monthly_rework_ratios(self):
+        """Prints monthly rework ratio breakdown"""
+        print()
+        print(colorize_metric_value("Monthly Rework Ratios (fixing vs building new):", 'header'))
+        
+        sorted_months = sorted(self.monthly_metrics.keys())
+        rework_ratios = []
+        
+        for month_key in sorted_months:
+            metrics = self.monthly_metrics[month_key]
+            defect_effort = metrics['effort_per_type'].get("Defect", 0) + metrics['effort_per_type'].get("Bug", 0)
+            story_effort = metrics['effort_per_type'].get("Story", 0)
+            total_effort = defect_effort + story_effort
+            
+            if total_effort > 0:
+                rework_ratio = (defect_effort / total_effort) * 100
+                rework_ratios.append(rework_ratio)
+                print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_percentage(rework_ratio, 30, 15)}")
+            else:
+                print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_metric_value('No data', 'warning')}")
+        
+        # Print trend analysis for rework ratios
+        if len(rework_ratios) >= 2:
+            rework_trend = self.calculate_linear_trend(rework_ratios)
+            rework_arrow = colorize_rework_trend_arrow(rework_trend)
+            
+            print()
+            print(f"  Trend: {rework_arrow}")
 
     def print_rework_ratio(self):
         """Prints rework ratio (fixing vs building new)"""

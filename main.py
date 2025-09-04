@@ -43,7 +43,6 @@ async def main():
         state = None
 
     if state is None:
-        print("Fetching issues...")
         try:
             issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
         except Exception as e: # pylint: disable=broad-except
@@ -59,12 +58,12 @@ async def main():
 
             if issue_info.valid:
                 if issue_info.delivered_in_sprint:
-                    state.add_delivered(issue_info.story_points)
+                    state.add_delivered(issue_info.story_points, issue_info.query_month)
                 else:
-                    state.add_carryover(issue_info.story_points)
+                    state.add_carryover(issue_info.story_points, issue_info.query_month)
 
                 if issue_info.cycle_time > 0:
-                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points)
+                    state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points, issue_info.query_month)
 
             if issue_info.in_progress_days is not None:
                 state.add_aging_item(issue_info.key, issue_info.issue_type, issue_info.in_progress_days, issue_info.is_aged, issue_info.story_points)

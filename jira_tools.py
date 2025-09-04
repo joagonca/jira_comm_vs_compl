@@ -13,7 +13,7 @@ from utils import AGING_THRESHOLDS, JIRA_CONFIG
 
 class IssueInfo:
     """Class to return issue info"""
-    def __init__(self, key=None, delivered_in_sprint=None, story_points=None, issue_type=None, cycle_time=None, valid=True, in_progress_days=None, is_aged=False):
+    def __init__(self, key=None, delivered_in_sprint=None, story_points=None, issue_type=None, cycle_time=None, valid=True, in_progress_days=None, is_aged=False, query_month=None):
         self.key = key
         self.delivered_in_sprint = delivered_in_sprint
         self.story_points = story_points
@@ -22,6 +22,7 @@ class IssueInfo:
         self.valid = valid
         self.in_progress_days = in_progress_days
         self.is_aged = is_aged
+        self.query_month = query_month
 
 class JiraTools:
     """Class that handles everything JIRA"""
@@ -70,20 +71,76 @@ class JiraTools:
                         await asyncio.sleep(JIRA_CONFIG['RETRY_DELAY'])
 
     async def get_all_issues(self, project_key, teams, skew, interval, custom_jql):
-        """Get all issues for a specific project"""
+        """Get all issues for a specific project, partitioned by month"""
         issues_combo = []
-        issues_url = f'{self.url}/search'
-
-        skew_str = ""
+        
+        # Determine the monthly partitions
         if skew > 0:
             if interval > 0:
                 # Interval mode: start from (interval + skew - 1) months ago, end at interval months ago
                 start_month = interval + skew - 1
                 end_month = interval - 1
-                skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{start_month}) AND updated <= endOfMonth(-{end_month})"
+                monthly_partitions = self.generate_monthly_partitions(start_month, end_month)
             else:
                 # Original behavior: last skew months
-                skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{skew-1})"
+                monthly_partitions = self.generate_monthly_partitions(skew - 1, 0)
+        else:
+            # No date filtering, use single query
+            monthly_partitions = [None]
+        
+        # Fetch issues for each monthly partition
+        total_partitions = len(monthly_partitions)
+        for i, month_filter in enumerate(monthly_partitions, 1):
+            if total_partitions > 1:
+                month_display = month_filter['month_key'] if month_filter else 'all'
+                print(f"\rFetching issues for {month_display} [{i}/{total_partitions}]...", end="", flush=True)
+            
+            month_issues = await self.get_issues_for_month(project_key, teams, custom_jql, month_filter)
+            # Add month info to each issue for tracking
+            for issue in month_issues:
+                issue['query_month'] = month_filter['month_key'] if month_filter else 'all'
+            issues_combo.extend(month_issues)
+        
+        # Clear the progress line after completion
+        if total_partitions > 1:
+            print("\r" + " " * 50, end="", flush=True)
+            print("\rFetching issues completed.", flush=True)
+        
+        return issues_combo
+
+    def generate_monthly_partitions(self, start_month, end_month):
+        """Generate monthly partition filters"""
+        partitions = []
+        for month_offset in range(start_month, end_month - 1, -1):
+            # Calculate the year and month for this offset
+            now = datetime.now()
+            target_year = now.year
+            target_month = now.month - month_offset
+            
+            # Handle year rollover
+            while target_month <= 0:
+                target_month += 12
+                target_year -= 1
+            while target_month > 12:
+                target_month -= 12
+                target_year += 1
+                
+            month_key = f"{target_year}-{target_month:02d}"
+            partitions.append({
+                'month_key': month_key,
+                'start_month': month_offset,
+                'end_month': month_offset
+            })
+        return partitions
+
+    async def get_issues_for_month(self, project_key, teams, custom_jql, month_filter):
+        """Get issues for a specific month partition"""
+        issues_combo = []
+        issues_url = f'{self.url}/search'
+
+        skew_str = ""
+        if month_filter:
+            skew_str = f" AND status changed FROM New AND updated >= startOfMonth(-{month_filter['start_month']}) AND updated <= endOfMonth(-{month_filter['end_month']})"
 
         teams_str = ""
         if teams != "":
@@ -113,7 +170,7 @@ class JiraTools:
             total = response['total']
             start_at += JIRA_CONFIG['MAX_RESULTS']
 
-            issues_combo =  issues_combo + response['issues']
+            issues_combo = issues_combo + response['issues']
 
         return issues_combo
 
@@ -238,7 +295,7 @@ class JiraTools:
         changelog_response = await self.jira_request(changelog_url)
         issue_type = changelog_response["fields"]["issuetype"]["name"]
 
-        issue_info = IssueInfo(key=iss["key"], valid=False)
+        issue_info = IssueInfo(key=iss["key"], valid=False, query_month=iss.get('query_month'))
 
         if self.debug:
             self.store_debug_info(iss["key"], changelog_response)
