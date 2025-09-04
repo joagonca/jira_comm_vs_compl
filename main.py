@@ -43,7 +43,6 @@ async def main():
         state = None
 
     if state is None:
-        print("Fetching issues...")
         try:
             issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
         except Exception as e: # pylint: disable=broad-except
