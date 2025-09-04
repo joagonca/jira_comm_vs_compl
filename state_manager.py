@@ -8,7 +8,8 @@ import pickle
 import numpy
 
 from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG, 
-                   colorize_percentage, colorize_metric_value, colorize_issue_key, colorize_aging_status)
+                   colorize_percentage, colorize_metric_value, colorize_issue_key, colorize_aging_status,
+                   colorize_trend_arrow, colorize_rework_trend_arrow)
 
 class State:
     """Class to store current state"""
@@ -208,8 +209,8 @@ class State:
             issue_trend = self.calculate_linear_trend(ratios_by_issues)
             sp_trend = self.calculate_linear_trend(ratios_by_sp)
             
-            issue_arrow = self.get_trend_arrow(issue_trend)
-            sp_arrow = self.get_trend_arrow(sp_trend)
+            issue_arrow = colorize_trend_arrow(issue_trend)
+            sp_arrow = colorize_trend_arrow(sp_trend)
             
             print()
             print(f"  Trend (Issues): {issue_arrow}")
@@ -232,21 +233,14 @@ class State:
             # Handle case where all y-values are the same
             return 0
 
-    def get_trend_arrow(self, slope):
-        """Get colored arrow based on trend slope"""
-        if slope > 0.01:  # Significant upward trend
-            return colorize_metric_value("↗", 'success')
-        elif slope < -0.01:  # Significant downward trend  
-            return colorize_metric_value("↘", 'error')
-        else:  # Relatively flat
-            return colorize_metric_value("→", 'info')
-
     def print_monthly_rework_ratios(self):
         """Prints monthly rework ratio breakdown"""
         print()
         print(colorize_metric_value("Monthly Rework Ratios (fixing vs building new):", 'header'))
         
         sorted_months = sorted(self.monthly_metrics.keys())
+        rework_ratios = []
+        
         for month_key in sorted_months:
             metrics = self.monthly_metrics[month_key]
             defect_effort = metrics['effort_per_type'].get("Defect", 0) + metrics['effort_per_type'].get("Bug", 0)
@@ -255,9 +249,18 @@ class State:
             
             if total_effort > 0:
                 rework_ratio = (defect_effort / total_effort) * 100
+                rework_ratios.append(rework_ratio)
                 print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_percentage(rework_ratio, 30, 15)}")
             else:
                 print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_metric_value('No data', 'warning')}")
+        
+        # Print trend analysis for rework ratios
+        if len(rework_ratios) >= 2:
+            rework_trend = self.calculate_linear_trend(rework_ratios)
+            rework_arrow = colorize_rework_trend_arrow(rework_trend)
+            
+            print()
+            print(f"  Trend: {rework_arrow}")
 
     def print_rework_ratio(self):
         """Prints rework ratio (fixing vs building new)"""
