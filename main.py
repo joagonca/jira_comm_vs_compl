@@ -49,6 +49,9 @@ async def main() -> None:
             print(f"Error fetching issues from Jira: {e}")
             return
         state = State(issues, args)
+    else:
+        # If state exists, get issues from state
+        issues = state.issues
 
     tasks = [jira.check_issue_resolution_in_sprint(issue) for issue in issues if issue["key"] not in state.parsed_issues]
 
@@ -56,19 +59,31 @@ async def main() -> None:
         for routine in tqdm(asyncio.as_completed(tasks), initial=len(issues)-len(tasks), total=len(issues), file=sys.stdout):
             issue_info = await routine
 
-            if issue_info.valid:
+            # Process valid issues for delivered/carryover metrics
+            if (issue_info.valid and not issue_info.removed_before_midpoint and 
+                issue_info.story_points is not None and issue_info.issue_type is not None and 
+                issue_info.key is not None):
+                
+                # Add to delivered/carryover metrics
                 if issue_info.delivered_in_sprint:
                     state.add_delivered(issue_info.story_points, issue_info.query_month)
                 else:
                     state.add_carryover(issue_info.story_points, issue_info.query_month)
 
-                if issue_info.cycle_time > 0:
+                # Add cycle time metrics
+                if issue_info.cycle_time is not None and issue_info.cycle_time > 0:
                     state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points, issue_info.query_month)
 
-            if issue_info.in_progress_days is not None:
+            # Process aging metrics for in-progress issues
+            if (issue_info.in_progress_days is not None and 
+                issue_info.issue_type is not None and 
+                issue_info.story_points is not None and 
+                issue_info.key is not None):
                 state.add_aging_item(issue_info.key, issue_info.issue_type, issue_info.in_progress_days, issue_info.is_aged, issue_info.story_points)
 
-            state.add_parsed_issue(issue_info.key)
+            # Always track that we processed this issue
+            if issue_info.key is not None:
+                state.add_parsed_issue(issue_info.key)
             state.persist_state()
     except Exception as e: # pylint: disable=broad-except
         print(f"Error processing issues: {e}")

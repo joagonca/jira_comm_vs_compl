@@ -2,7 +2,6 @@
 
 import sqlite3
 import json
-import os
 from typing import Dict, Any, Optional
 
 
