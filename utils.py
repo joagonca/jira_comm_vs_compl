@@ -32,9 +32,7 @@ COLOR_THEMES = {
     'warning': Fore.YELLOW,
     'error': Fore.RED,
     'info': Fore.CYAN,
-    'header': Fore.MAGENTA + Style.BRIGHT,
-    'metric': Fore.BLUE,
-    'highlight': Fore.WHITE + Style.BRIGHT
+    'header': Fore.MAGENTA + Style.BRIGHT
 }
 
 def seconds_to_pretty(seconds: Union[int, float]) -> str:
