@@ -134,11 +134,10 @@ class IssueState:
         if self.work_start is not None and self.work_end is not None:
             total_seconds = (self.work_end - self.work_start).total_seconds()
             
-            # Exclude weekends (same logic as original calculate_cycle_time method)
+            # Exclude weekends (exact logic as original calculate_cycle_time method)
             weekend_seconds = 0
-            current_date = self.work_start.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_date = self.work_end.replace(hour=0, minute=0, second=0, microsecond=0)
-            while current_date <= end_date:
+            current_date = self.work_start
+            while current_date <= self.work_end:
                 if current_date.weekday() >= 5:  # Saturday (5) or Sunday (6)
                     weekend_seconds += 24 * 60 * 60
                 current_date += timedelta(days=1)
