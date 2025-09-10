@@ -57,7 +57,11 @@ async def main() -> None:
             issue_info = await routine
 
             if issue_info.valid:
-                if issue_info.delivered_in_sprint:
+                # Exclude issues that were removed from sprint before midpoint
+                if issue_info.removed_before_midpoint:
+                    # Issue was removed before sprint midpoint, don't count toward any metrics
+                    pass
+                elif issue_info.delivered_in_sprint:
                     state.add_delivered(issue_info.story_points, issue_info.query_month)
                 else:
                     state.add_carryover(issue_info.story_points, issue_info.query_month)

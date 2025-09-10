@@ -19,7 +19,7 @@ class IssueInfo:
                  story_points: Optional[Union[int, float]] = None, issue_type: Optional[str] = None,
                  cycle_time: Optional[Union[int, float]] = None, valid: bool = True,
                  in_progress_days: Optional[float] = None, is_aged: bool = False,
-                 query_month: Optional[str] = None):
+                 query_month: Optional[str] = None, removed_before_midpoint: bool = False):
         self.key = key
         self.delivered_in_sprint = delivered_in_sprint
         self.story_points = story_points
@@ -29,6 +29,7 @@ class IssueInfo:
         self.in_progress_days = in_progress_days
         self.is_aged = is_aged
         self.query_month = query_month
+        self.removed_before_midpoint = removed_before_midpoint
 
 class JiraTools:
     """Class that handles everything JIRA"""
@@ -232,6 +233,57 @@ class JiraTools:
                     })
         return transitions
 
+    def parse_sprint_changes(self, changelog_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract sprint field changes from changelog"""
+        sprint_changes = []
+        for history in changelog_response["changelog"]["histories"]:
+            timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            for item in history["items"]:
+                if item["field"] == JIRA_CONFIG['SPRINT_CUSTOM_FIELD']:
+                    from_sprints = self.parse_sprint_list(item.get("fromString", ""))
+                    to_sprints = self.parse_sprint_list(item.get("toString", ""))
+                    
+                    # Determine what changed
+                    added_sprints = [s for s in to_sprints if s not in from_sprints]
+                    removed_sprints = [s for s in from_sprints if s not in to_sprints]
+                    
+                    for sprint in added_sprints:
+                        sprint_changes.append({
+                            "action": "added",
+                            "sprint": sprint,
+                            "timestamp": timestamp
+                        })
+                    
+                    for sprint in removed_sprints:
+                        sprint_changes.append({
+                            "action": "removed", 
+                            "sprint": sprint,
+                            "timestamp": timestamp
+                        })
+        return sprint_changes
+    
+    def parse_sprint_list(self, sprint_string: str) -> List[str]:
+        """Parse sprint names from comma-separated string"""
+        if not sprint_string:
+            return []
+        # Handle both comma-separated names and sprint object strings
+        sprint_names = []
+        for part in sprint_string.split(','):
+            part = part.strip()
+            if 'name=' in part:
+                # Extract name from sprint object string like "name=Sprint 1"
+                name_start = part.find('name=') + 5
+                name_end = part.find(',', name_start)
+                if name_end == -1:
+                    name_end = part.find(']', name_start)
+                if name_end == -1:
+                    name_end = len(part)
+                sprint_names.append(part[name_start:name_end].strip())
+            elif part and not part.startswith('['):
+                # Simple comma-separated name
+                sprint_names.append(part)
+        return sprint_names
+
     def match_transitions_to_sprints(self, transitions: List[Dict[str, Any]], parsed_sprints: List[Dict[str, Any]]) -> None:
         """Match each transition to a sprint based on timing"""
         for t in transitions:
@@ -254,8 +306,8 @@ class JiraTools:
         
         return in_progress_days, is_aged
 
-    def determine_sprint_delivery(self, transitions: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Determine sprint delivery status and timing from transitions"""
+    def determine_sprint_delivery(self, transitions: List[Dict[str, Any]], sprint_changes: List[Dict[str, Any]], parsed_sprints: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Determine sprint delivery status and timing from transitions and sprint changes"""
         start_sprint = ""
         end_sprint = ""
         consider = False
@@ -265,7 +317,11 @@ class JiraTools:
         work_end = None
         last_in_progress_start = None
         current_status = None
+        removed_before_midpoint = False
+        sprint_assignment_time = None
+        sprint_removal_time = None
 
+        # Process status transitions
         for t in transitions:
             if t['to'] == "In Progress":
                 start_sprint = t['sprint']
@@ -288,6 +344,36 @@ class JiraTools:
             
             current_status = t['to']
 
+        # Process sprint changes to find assignment/removal relative to work period
+        if work_start and start_sprint:
+            # Find when the issue was assigned to the starting sprint
+            for change in sprint_changes:
+                if change['action'] == 'added' and change['sprint'] == start_sprint:
+                    if change['timestamp'] <= work_start:
+                        # Issue was assigned to sprint before work started (normal case)
+                        sprint_assignment_time = change['timestamp']
+                    elif work_end and change['timestamp'] <= work_end:
+                        # Issue was assigned to sprint after work started but before completion
+                        sprint_assignment_time = change['timestamp']
+                        start_sprint = change['sprint']  # Update start sprint to actual assignment
+
+            # Find if the issue was removed from the starting sprint before midpoint
+            for change in sprint_changes:
+                if (change['action'] == 'removed' and 
+                    change['sprint'] == start_sprint and 
+                    sprint_assignment_time and 
+                    change['timestamp'] > sprint_assignment_time):
+                    
+                    sprint_removal_time = change['timestamp']
+                    
+                    # Check if removal was before sprint midpoint
+                    sprint_info = next((s for s in parsed_sprints if s.get('name') == start_sprint), None)
+                    if sprint_info and sprint_info.get('startDate') and sprint_info.get('endDate'):
+                        sprint_duration = sprint_info['endDate'] - sprint_info['startDate']
+                        midpoint = sprint_info['startDate'] + (sprint_duration / 2)
+                        removed_before_midpoint = change['timestamp'].replace(tzinfo=None) < midpoint
+                    break
+
         return {
             'start_sprint': start_sprint,
             'end_sprint': end_sprint,
@@ -296,7 +382,10 @@ class JiraTools:
             'work_end': work_end,
             'pending_duration': pending_duration,
             'last_in_progress_start': last_in_progress_start,
-            'current_status': current_status
+            'current_status': current_status,
+            'removed_before_midpoint': removed_before_midpoint,
+            'sprint_assignment_time': sprint_assignment_time,
+            'sprint_removal_time': sprint_removal_time
         }
 
     async def check_issue_resolution_in_sprint(self, iss: Dict[str, Any]) -> IssueInfo:
@@ -324,9 +413,10 @@ class JiraTools:
 
         parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
         transitions = self.parse_issue_transitions(changelog_response)
+        sprint_changes = self.parse_sprint_changes(changelog_response)
         self.match_transitions_to_sprints(transitions, parsed_sprints)
         
-        delivery_info = self.determine_sprint_delivery(transitions)
+        delivery_info = self.determine_sprint_delivery(transitions, sprint_changes, parsed_sprints)
         
         # Store issue in SQLite if it has an end_sprint and came from API (not from database)
         if not from_database:
@@ -344,6 +434,7 @@ class JiraTools:
             issue_info.issue_type = issue_type
             issue_info.cycle_time = cycle_time
             issue_info.delivered_in_sprint = delivery_info['start_sprint'] == delivery_info['end_sprint']
+            issue_info.removed_before_midpoint = delivery_info['removed_before_midpoint']
             issue_info.valid = True
 
         if delivery_info['current_status'] == "In Progress":
