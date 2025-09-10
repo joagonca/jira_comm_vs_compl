@@ -10,7 +10,7 @@ import numpy
 
 from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG, 
                    colorize_percentage, colorize_metric_value, colorize_issue_key, colorize_aging_status,
-                   colorize_trend_arrow, colorize_rework_trend_arrow)
+                   colorize_trend_arrow, colorize_rework_trend_arrow, colorize_rework_percentage)
 
 class State:
     """Class to store current state"""
@@ -253,7 +253,7 @@ class State:
             if total_effort > 0:
                 rework_ratio = (defect_effort / total_effort) * 100
                 rework_ratios.append(rework_ratio)
-                print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_percentage(rework_ratio, 30, 15)}")
+                print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_rework_percentage(rework_ratio)}")
             else:
                 print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_metric_value('No data', 'warning')}")
         
@@ -274,7 +274,7 @@ class State:
         
         if total_effort > 0:
             rework_ratio = (defect_effort / total_effort) * 100
-            print(f"Rework Ratio (fixing vs. building new): {colorize_percentage(rework_ratio, 30, 15)}")
+            print(f"Rework Ratio (fixing vs. building new): {colorize_rework_percentage(rework_ratio)}")
         else:
             print(f"Rework Ratio: {colorize_metric_value('No data available (no Stories, Defects, or Bugs with cycle time)', 'warning')}")
 

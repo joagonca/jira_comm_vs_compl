@@ -96,3 +96,12 @@ def colorize_rework_trend_arrow(slope: Union[int, float], threshold: Union[int, 
         return f"{COLOR_THEMES['success']}↘{Style.RESET_ALL}"
     else:  # Relatively flat
         return f"{COLOR_THEMES['info']}→{Style.RESET_ALL}"
+
+def colorize_rework_percentage(percentage: Union[int, float], bad_threshold: Union[int, float] = 30, warning_threshold: Union[int, float] = 15) -> str:
+    """Colorize rework percentage (inverted logic - lower rework is better)"""
+    if percentage >= bad_threshold:  # High rework ratio (bad)
+        return f"{Fore.RED}{percentage:.2f}%{Style.RESET_ALL}"
+    elif percentage >= warning_threshold:  # Medium rework ratio (warning)
+        return f"{Fore.YELLOW}{percentage:.2f}%{Style.RESET_ALL}"
+    else:  # Low rework ratio (good)
+        return f"{Fore.GREEN}{percentage:.2f}%{Style.RESET_ALL}"
