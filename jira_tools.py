@@ -90,6 +90,15 @@ class IssueState:
                 self.work_start = event.timestamp
                 self.start_sprint = event.sprint or ""
             self.last_in_progress_start = event.timestamp
+            
+            # Check if this transition happened in a closed sprint (for legacy compatibility)
+            sprint_info = next((s for s in self.parsed_sprints if s.get('name') == event.sprint), None)
+            if sprint_info and sprint_info.get('state') == 'CLOSED':
+                self.was_resolved = True  # Treat work in closed sprint as resolved
+                # For closed sprint work, use the end date of the sprint as work_end if not already set
+                if self.work_end is None and sprint_info.get('endDate'):
+                    self.work_end = sprint_info['endDate']
+                    self.end_sprint = event.sprint or ""
 
         elif event.to_status == "Resolved":
             self.work_end = event.timestamp
@@ -121,10 +130,23 @@ class IssueState:
         classification.last_in_progress_start = self.last_in_progress_start
         classification.pending_duration = self.pending_duration
 
-        # Calculate cycle time
+        # Calculate cycle time (matching original logic with weekend exclusion)
         if self.work_start is not None and self.work_end is not None:
-            work_duration = (self.work_end - self.work_start).total_seconds()
-            classification.cycle_time = max(0, (work_duration - self.pending_duration) / (24 * 3600))
+            total_seconds = (self.work_end - self.work_start).total_seconds()
+            
+            # Exclude weekends (same logic as original calculate_cycle_time method)
+            weekend_seconds = 0
+            current_date = self.work_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = self.work_end.replace(hour=0, minute=0, second=0, microsecond=0)
+            while current_date <= end_date:
+                if current_date.weekday() >= 5:  # Saturday (5) or Sunday (6)
+                    weekend_seconds += 24 * 60 * 60
+                current_date += timedelta(days=1)
+            
+            # Return result in seconds (matching original method)
+            classification.cycle_time = max(0, total_seconds - weekend_seconds - self.pending_duration)
+        else:
+            classification.cycle_time = 0
 
         # Calculate aging metrics for in-progress issues
         if self.current_status == "In Progress" and self.last_in_progress_start is not None:
