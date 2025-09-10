@@ -72,35 +72,3 @@ class SQLiteManager:
                 return json.loads(result[0])
             return None
     
-    def issue_exists(self, issue_key: str) -> bool:
-        """Check if issue exists in database.
-        
-        Args:
-            issue_key: JIRA issue key
-            
-        Returns:
-            True if issue exists, False otherwise
-        """
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT 1 FROM issue_changelog WHERE issue_key = ? LIMIT 1
-            """, (issue_key,))
-            
-            return cursor.fetchone() is not None
-    
-    def get_stats(self) -> Dict[str, int]:
-        """Get database statistics.
-        
-        Returns:
-            Dictionary with count of stored issues
-        """
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM issue_changelog")
-            count = cursor.fetchone()[0]
-            
-        return {
-            "total_issues": count,
-            "db_file_size": os.path.getsize(self.db_path) if os.path.exists(self.db_path) else 0
-        }
