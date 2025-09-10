@@ -12,7 +12,7 @@ from arg_parser import create_argument_parser
 from jira_tools import JiraTools
 from state_manager import State
 
-async def main():
+async def main() -> None:
     """Main function"""
     parser = create_argument_parser()
     args = parser.parse_args()

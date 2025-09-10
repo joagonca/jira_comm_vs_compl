@@ -4,6 +4,7 @@ State manager
 
 from pathlib import Path
 import pickle
+from typing import Dict, List, Any, Optional, Union
 
 import numpy
 
@@ -13,7 +14,7 @@ from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG,
 
 class State:
     """Class to store current state"""
-    def __init__(self, iss, command_args=None):
+    def __init__(self, iss: List[Dict[str, Any]], command_args: Optional[Any] = None):
         self.issues = iss
         self.delivered = self.carryover = 0
         self.delivered_sp = self.carryover_sp = 0
@@ -27,7 +28,7 @@ class State:
         # Monthly tracking for commitment vs delivery and rework
         self.monthly_metrics = {}  # key: month_key, value: {delivered, carryover, delivered_sp, carryover_sp, effort_per_type}
 
-    def add_delivered(self, story_points, month_key=None):
+    def add_delivered(self, story_points: Union[int, float], month_key: Optional[str] = None) -> None:
         """Add a delivered issue"""
         self.delivered += 1
         self.delivered_sp += story_points
@@ -37,7 +38,7 @@ class State:
             self.monthly_metrics[month_key]['delivered'] += 1
             self.monthly_metrics[month_key]['delivered_sp'] += story_points
 
-    def add_carryover(self, story_points, month_key=None):
+    def add_carryover(self, story_points: Union[int, float], month_key: Optional[str] = None) -> None:
         """Add a carryover issue"""
         self.carryover += 1
         self.carryover_sp += story_points
@@ -47,7 +48,7 @@ class State:
             self.monthly_metrics[month_key]['carryover'] += 1
             self.monthly_metrics[month_key]['carryover_sp'] += story_points
 
-    def ensure_monthly_metrics(self, month_key):
+    def ensure_monthly_metrics(self, month_key: str) -> None:
         """Ensure monthly metrics entry exists"""
         if month_key not in self.monthly_metrics:
             self.monthly_metrics[month_key] = {
@@ -58,7 +59,7 @@ class State:
                 'effort_per_type': {}
             }
 
-    def add_issue_cycle_time(self, issue_key, issue_type, duration, story_points=None, month_key=None):
+    def add_issue_cycle_time(self, issue_key: str, issue_type: str, duration: Union[int, float], story_points: Optional[Union[int, float]] = None, month_key: Optional[str] = None) -> None:
         """Adds the cycle time of an issue"""
         if issue_type in self.cycle_time_per_type:
             self.cycle_time_per_type[issue_type].append([issue_key, duration])
@@ -84,11 +85,11 @@ class State:
         else:
             self.cycle_time_per_sp[sp_key] = [[issue_key, duration]]
 
-    def add_parsed_issue(self, issue_key):
+    def add_parsed_issue(self, issue_key: str) -> None:
         """Adds a parsed issue to the dict"""
         self.parsed_issues[issue_key] = True
 
-    def add_aging_item(self, issue_key, issue_type, in_progress_days, is_aged, story_points):
+    def add_aging_item(self, issue_key: str, issue_type: str, in_progress_days: float, is_aged: bool, story_points: Optional[Union[int, float]]) -> None:
         """Adds an aging item to tracking"""
         self.aging_items.append({
             'key': issue_key,
@@ -98,7 +99,7 @@ class State:
             'story_points': story_points
         })
 
-    def command_matches(self, current_args):
+    def command_matches(self, current_args: Any) -> bool:
         """Check if current command arguments match the saved ones"""
         if self.command_args is None:
             return False
@@ -111,20 +112,20 @@ class State:
         
         return True
 
-    def get_total_valid_issues(self):
+    def get_total_valid_issues(self) -> int:
         """Returns a count of the total of valid issues"""
         return self.delivered + self.carryover
 
-    def get_total_sps(self):
+    def get_total_sps(self) -> Union[int, float]:
         """Returns a total of SPs worked on"""
         return self.delivered_sp + self.carryover_sp
 
-    def persist_state(self):
+    def persist_state(self) -> None:
         """Persists state to disk"""
         with open(JIRA_CONFIG['STATE_FILE'], "wb") as fb:
             pickle.dump(self, fb)
 
-    def print_stats(self):
+    def print_stats(self) -> None:
         """Prints current stats"""
         # Overall summary
         ratio_issue = self.delivered / self.get_total_valid_issues()
@@ -155,10 +156,10 @@ class State:
             bottom_1 = numpy.percentile(values, 1)
             std_dev = numpy.std(values)
 
-            print(f"{colorize_metric_value(k, 'info')} ({colorize_metric_value(len(values), 'count')}): {colorize_metric_value(seconds_to_pretty(average), 'time')}")
-            print(f"    Top 1% [{colorize_issue_key(v[argmax][0])}]: {colorize_metric_value(seconds_to_pretty(top_1), 'time')}")
-            print(f"    Bottom 1% [{colorize_issue_key(v[argmin][0])}]: {colorize_metric_value(seconds_to_pretty(bottom_1), 'time')}")
-            print(f"    Std. Deviation: {colorize_metric_value(seconds_to_pretty(std_dev), 'time')}")
+            print(f"{colorize_metric_value(k, 'info')} ({colorize_metric_value(len(values), 'count')}): {colorize_metric_value(seconds_to_pretty(float(average)), 'time')}")
+            print(f"    Top 1% [{colorize_issue_key(v[argmax][0])}]: {colorize_metric_value(seconds_to_pretty(float(top_1)), 'time')}")
+            print(f"    Bottom 1% [{colorize_issue_key(v[argmin][0])}]: {colorize_metric_value(seconds_to_pretty(float(bottom_1)), 'time')}")
+            print(f"    Std. Deviation: {colorize_metric_value(seconds_to_pretty(float(std_dev)), 'time')}")
             print()
 
         print(colorize_metric_value("Average cycle time by Story Points:", 'header'))
@@ -172,14 +173,16 @@ class State:
             std_dev = numpy.std(values)
 
             sp_display = f"{sp_key} SPs" if sp_key != -1 else "No SPs"
-            print(f"{colorize_metric_value(sp_display, 'info')} ({colorize_metric_value(len(values), 'count')}): {colorize_metric_value(seconds_to_pretty(average), 'time')} (SD: {colorize_metric_value(seconds_to_pretty(std_dev), 'time')})")
+            avg_time = colorize_metric_value(seconds_to_pretty(float(average)), 'time')
+            sd_time = colorize_metric_value(seconds_to_pretty(float(std_dev)), 'time')
+            print(f"{colorize_metric_value(sp_display, 'info')} ({colorize_metric_value(len(values), 'count')}): {avg_time} (SD: {sd_time})")
 
         print()
 
         # Overall rework ratio (for comparison with monthly breakdown)
         self.print_rework_ratio()
 
-    def print_monthly_commitment_delivery(self):
+    def print_monthly_commitment_delivery(self) -> None:
         """Prints monthly commitment vs delivery breakdown"""
         print()
         print(colorize_metric_value("Monthly Commitment vs Delivery:", 'header'))
@@ -216,7 +219,7 @@ class State:
             print(f"  Trend (Issues): {issue_arrow}")
             print(f"  Trend (Story Points): {sp_arrow}")
 
-    def calculate_linear_trend(self, values):
+    def calculate_linear_trend(self, values: List[float]) -> float:
         """Calculate linear trend slope using numpy polyfit"""
         if len(values) < 2:
             return 0
@@ -229,11 +232,11 @@ class State:
         try:
             coefficients = numpy.polyfit(x_values, y_values, 1)
             return coefficients[0]  # Return slope
-        except numpy.RankWarning:
-            # Handle case where all y-values are the same
+        except numpy.linalg.LinAlgError:
+            # Handle case where all y-values are the same or other linear algebra issues
             return 0
 
-    def print_monthly_rework_ratios(self):
+    def print_monthly_rework_ratios(self) -> None:
         """Prints monthly rework ratio breakdown"""
         print()
         print(colorize_metric_value("Monthly Rework Ratios (fixing vs building new):", 'header'))
@@ -262,7 +265,7 @@ class State:
             print()
             print(f"  Trend: {rework_arrow}")
 
-    def print_rework_ratio(self):
+    def print_rework_ratio(self) -> None:
         """Prints rework ratio (fixing vs building new)"""
         defect_effort = self.effort_per_type.get("Defect", 0) + self.effort_per_type.get("Bug", 0)
         
@@ -275,7 +278,7 @@ class State:
         else:
             print(f"Rework Ratio: {colorize_metric_value('No data available (no Stories, Defects, or Bugs with cycle time)', 'warning')}")
 
-    def print_aging_report(self):
+    def print_aging_report(self) -> None:
         """Prints work item aging report"""
         if not self.aging_items:
             print()
@@ -315,12 +318,12 @@ class State:
             print(f"  {success_msg} ({total_count} items in progress)")
             print()
 
-    def get_aging_threshold(self, issue_type):
+    def get_aging_threshold(self, issue_type: str) -> int:
         """Gets aging threshold for issue type"""
         return AGING_THRESHOLDS.get(issue_type, 14)
 
     @staticmethod
-    def load_state():
+    def load_state() -> Optional['State']:
         """Load state from disk"""
         state_file = JIRA_CONFIG['STATE_FILE']
         existing_state = Path(state_file)
@@ -331,6 +334,6 @@ class State:
         return None
 
     @staticmethod
-    def clear_state():
+    def clear_state() -> None:
         """Deletes state file"""
         Path(JIRA_CONFIG['STATE_FILE']).unlink()

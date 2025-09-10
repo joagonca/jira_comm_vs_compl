@@ -4,7 +4,7 @@ Argument parser
 
 import argparse
 
-def create_argument_parser():
+def create_argument_parser() -> argparse.ArgumentParser:
     """Creates and configures an argument parser"""
     parser = argparse.ArgumentParser(
         prog='jira_stats',

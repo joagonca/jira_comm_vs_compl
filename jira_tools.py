@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timedelta
 import json
 import os
+from typing import Dict, List, Any, Optional, Union
 
 import httpx
 
@@ -14,7 +15,11 @@ from sqlite_manager import SQLiteManager
 
 class IssueInfo:
     """Class to return issue info"""
-    def __init__(self, key=None, delivered_in_sprint=None, story_points=None, issue_type=None, cycle_time=None, valid=True, in_progress_days=None, is_aged=False, query_month=None):
+    def __init__(self, key: Optional[str] = None, delivered_in_sprint: Optional[bool] = None,
+                 story_points: Optional[Union[int, float]] = None, issue_type: Optional[str] = None,
+                 cycle_time: Optional[Union[int, float]] = None, valid: bool = True,
+                 in_progress_days: Optional[float] = None, is_aged: bool = False,
+                 query_month: Optional[str] = None):
         self.key = key
         self.delivered_in_sprint = delivered_in_sprint
         self.story_points = story_points
@@ -27,7 +32,7 @@ class IssueInfo:
 
 class JiraTools:
     """Class that handles everything JIRA"""
-    def __init__(self, token, url, proxies, debug, max_concurrency=None):
+    def __init__(self, token: str, url: str, proxies: Optional[str], debug: bool, max_concurrency: Optional[int] = None):
         self.token = token
         self.url = url
         self.proxies = proxies
@@ -36,14 +41,14 @@ class JiraTools:
         self.semaphore = asyncio.Semaphore(self.max_concurrency)
         self.sqlite_manager = SQLiteManager()
 
-    def store_debug_info(self, issue, data):
+    def store_debug_info(self, issue: str, data: Dict[str, Any]) -> None:
         """Saves debug info to disk"""
         debug_dir = JIRA_CONFIG['DEBUG_DIR']
         os.makedirs(debug_dir, exist_ok=True)
         with open(f"{debug_dir}/{issue}.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
-    async def jira_request(self, url, method='GET', data=None):
+    async def jira_request(self, url: str, method: str = 'GET', data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Generic function to call JIRA APIs"""
         retries = JIRA_CONFIG['RETRY_COUNT_MULTIPLIER'] * self.max_concurrency
         async with self.semaphore:
@@ -71,8 +76,11 @@ class JiraTools:
                         print("\r" + " " * os.get_terminal_size()[0], end="", flush=True)
                         print(f"\rRetrying after error {exc.response.status_code}...", end="", flush=True)
                         await asyncio.sleep(JIRA_CONFIG['RETRY_DELAY'])
+                
+                # If we've exhausted all retries without success, raise a more specific error
+                raise httpx.RequestError("All retry attempts failed")
 
-    async def get_all_issues(self, project_key, teams, skew, interval, custom_jql):
+    async def get_all_issues(self, project_key: str, teams: str, skew: int, interval: int, custom_jql: str) -> List[Dict[str, Any]]:
         """Get all issues for a specific project, partitioned by month"""
         issues_combo = []
         
@@ -110,7 +118,7 @@ class JiraTools:
         
         return issues_combo
 
-    def generate_monthly_partitions(self, start_month, end_month):
+    def generate_monthly_partitions(self, start_month: int, end_month: int) -> List[Dict[str, Any]]:
         """Generate monthly partition filters"""
         partitions = []
         for month_offset in range(start_month, end_month - 1, -1):
@@ -135,7 +143,7 @@ class JiraTools:
             })
         return partitions
 
-    async def get_issues_for_month(self, project_key, teams, custom_jql, month_filter):
+    async def get_issues_for_month(self, project_key: str, teams: str, custom_jql: str, month_filter: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Get issues for a specific month partition"""
         issues_combo = []
         issues_url = f'{self.url}/search'
@@ -176,7 +184,7 @@ class JiraTools:
 
         return issues_combo
 
-    def parse_sprint_string(self, sprint_string):
+    def parse_sprint_string(self, sprint_string: str) -> Dict[str, Any]:
         """Parsing the custom field that contains sprint information"""
         info = {}
         for part in sprint_string.strip('[]').split(','):
@@ -194,7 +202,7 @@ class JiraTools:
 
         return info
 
-    def calculate_cycle_time(self, work_start, work_end, pending_duration):
+    def calculate_cycle_time(self, work_start: Optional[datetime], work_end: Optional[datetime], pending_duration: Union[int, float]) -> Union[int, float]:
         """"Calculates item cycle time, taking into account weekends"""
         if work_start is None or work_end is None:
             return 0
@@ -210,7 +218,7 @@ class JiraTools:
 
         return total_seconds - weekend_seconds - pending_duration
 
-    def parse_issue_transitions(self, changelog_response):
+    def parse_issue_transitions(self, changelog_response: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract status transitions from changelog"""
         transitions = []
         for history in changelog_response["changelog"]["histories"]:
@@ -224,7 +232,7 @@ class JiraTools:
                     })
         return transitions
 
-    def match_transitions_to_sprints(self, transitions, parsed_sprints):
+    def match_transitions_to_sprints(self, transitions: List[Dict[str, Any]], parsed_sprints: List[Dict[str, Any]]) -> None:
         """Match each transition to a sprint based on timing"""
         for t in transitions:
             ts = t["timestamp"].replace(tzinfo=None)
@@ -232,7 +240,7 @@ class JiraTools:
             t["state"] = sprint["state"] if sprint else None
             t["sprint"] = sprint["name"] if sprint else None
 
-    def calculate_aging_metrics(self, current_status, last_in_progress_start, issue_type):
+    def calculate_aging_metrics(self, current_status: Optional[str], last_in_progress_start: Optional[datetime], issue_type: str) -> tuple[Optional[float], bool]:
         """Calculate aging metrics for items currently in progress"""
         if current_status != "In Progress" or last_in_progress_start is None:
             return None, False
@@ -246,7 +254,7 @@ class JiraTools:
         
         return in_progress_days, is_aged
 
-    def determine_sprint_delivery(self, transitions):
+    def determine_sprint_delivery(self, transitions: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Determine sprint delivery status and timing from transitions"""
         start_sprint = ""
         end_sprint = ""
@@ -291,7 +299,7 @@ class JiraTools:
             'current_status': current_status
         }
 
-    async def check_issue_resolution_in_sprint(self, iss):
+    async def check_issue_resolution_in_sprint(self, iss: Dict[str, Any]) -> IssueInfo:
         """Validates if issue was solved in the sprint"""
         issue_info = IssueInfo(key=iss["key"], valid=False, query_month=iss.get('query_month'))
         
