@@ -10,6 +10,7 @@ import os
 import httpx
 
 from utils import AGING_THRESHOLDS, JIRA_CONFIG
+from sqlite_manager import SQLiteManager
 
 class IssueInfo:
     """Class to return issue info"""
@@ -33,6 +34,7 @@ class JiraTools:
         self.debug = debug
         self.max_concurrency = max_concurrency or JIRA_CONFIG['DEFAULT_CONCURRENCY']
         self.semaphore = asyncio.Semaphore(self.max_concurrency)
+        self.sqlite_manager = SQLiteManager()
 
     def store_debug_info(self, issue, data):
         """Saves debug info to disk"""
@@ -291,11 +293,19 @@ class JiraTools:
 
     async def check_issue_resolution_in_sprint(self, iss):
         """Validates if issue was solved in the sprint"""
-        changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
-        changelog_response = await self.jira_request(changelog_url)
-        issue_type = changelog_response["fields"]["issuetype"]["name"]
-
         issue_info = IssueInfo(key=iss["key"], valid=False, query_month=iss.get('query_month'))
+        
+        # Check if issue exists in SQLite first
+        changelog_response = self.sqlite_manager.get_issue(iss["key"])
+        from_database = True
+        
+        if changelog_response is None:
+            # Issue not in database, make API call
+            changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
+            changelog_response = await self.jira_request(changelog_url)
+            from_database = False
+        
+        issue_type = changelog_response["fields"]["issuetype"]["name"]
 
         if self.debug:
             self.store_debug_info(iss["key"], changelog_response)
@@ -309,6 +319,10 @@ class JiraTools:
         self.match_transitions_to_sprints(transitions, parsed_sprints)
         
         delivery_info = self.determine_sprint_delivery(transitions)
+        
+        # Store issue in SQLite if it has an end_sprint and came from API (not from database)
+        if not from_database:
+            self.sqlite_manager.store_issue(iss["key"], changelog_response, delivery_info['end_sprint'])
         
         story_points = changelog_response["fields"].get(JIRA_CONFIG['STORY_POINTS_CUSTOM_FIELD'], 1.0)
         if story_points is None:
