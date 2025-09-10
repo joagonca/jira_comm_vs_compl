@@ -35,6 +35,7 @@
 *   **Trend Analysis:** Mathematical linear regression analysis using numpy for commitment and rework trends.
 *   **Colorized Output:** Color-coded arrows and percentages for easy trend visualization.
 *   **Custom JQL Queries:**  Support for providing custom JQL queries for advanced filtering and data retrieval.
+*   **SQLite Caching:** Automatically caches issue changelog data locally to avoid redundant API calls and improve performance.
 
 ## Installation
 
