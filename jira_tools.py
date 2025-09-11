@@ -223,7 +223,7 @@ class IssueClassifier:
         events = []
         
         for history in changelog_response["changelog"]["histories"]:
-            timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z").replace(tzinfo=None)
             
             for item in history["items"]:
                 if item["field"] == "status":
@@ -338,7 +338,7 @@ class JiraTools:
             if interval > 0:
                 # Interval mode: start from (interval + skew - 1) months ago, end at interval months ago
                 start_month = interval + skew - 1
-                end_month = interval - 1
+                end_month = interval
                 monthly_partitions = self.generate_monthly_partitions(start_month, end_month)
             else:
                 # Original behavior: last skew months
@@ -445,9 +445,9 @@ class JiraTools:
             info['startDate'] = info['endDate'] = None
         else:
             if 'startDate' in info:
-                info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
+                info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=None)
             if 'endDate' in info:
-                info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ")
+                info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=None)
 
         return info
 
