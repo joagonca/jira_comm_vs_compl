@@ -36,6 +36,9 @@
 *   **Colorized Output:** Color-coded arrows and percentages for easy trend visualization.
 *   **Custom JQL Queries:**  Support for providing custom JQL queries for advanced filtering and data retrieval.
 *   **SQLite Caching:** Automatically caches issue changelog data locally to avoid redundant API calls and improve performance.
+*   **Debug Levels:** Two-level debugging system for troubleshooting and analysis:
+    - **Level 1 (`-d`):** Creates `debug/delivered.txt` and `debug/carryover.txt` with issue keys
+    - **Level 2 (`-dd`):** Level 1 + stores complete API responses as JSON files
 
 ## Installation
 
@@ -143,6 +146,30 @@ Monthly Rework Ratios (fixing vs building new):
 - ↘ Green down arrow: Improving rework (less fixing, more building)
 - ↗ Red up arrow: Worsening rework (more fixing, less building)
 - → Gray right arrow: Stable/flat trends
+
+## Debug Features
+
+The application supports two levels of debugging to help with troubleshooting and analysis:
+
+### Level 1 Debug (`-d`)
+```bash
+$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456" -a secret.txt -s 2 -d
+```
+
+Creates two text files in the `debug/` directory:
+- **`delivered.txt`**: One issue key per line for issues delivered in the same sprint they were started
+- **`carryover.txt`**: One issue key per line for issues that carried over to different sprints
+
+### Level 2 Debug (`-dd`)
+```bash
+$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456" -a secret.txt -s 2 -dd
+```
+
+Includes Level 1 debug files plus:
+- **Individual JSON files**: Complete API responses for each processed issue (e.g., `PROJ-1234.json`)
+- Useful for deep analysis of changelog data and sprint transitions
+
+**Debug files location:** All debug files are created in a `debug/` directory in the current working directory.
 
 ## Contributing 
 

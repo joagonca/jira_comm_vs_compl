@@ -289,13 +289,40 @@ class JiraTools:
         self.max_concurrency = max_concurrency or JIRA_CONFIG['DEFAULT_CONCURRENCY']
         self.semaphore = asyncio.Semaphore(self.max_concurrency)
         self.sqlite_manager = SQLiteManager()
+        self.debug_files_cleaned = False
 
     def store_debug_info(self, issue: str, data: Dict[str, Any]) -> None:
-        """Saves debug info to disk"""
+        """Saves debug info to disk (level 2 debug) - overwrites existing files"""
         debug_dir = JIRA_CONFIG['DEBUG_DIR']
         os.makedirs(debug_dir, exist_ok=True)
         with open(f"{debug_dir}/{issue}.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+
+    def clean_debug_files(self) -> None:
+        """Clean debug files before starting new run (level 1 debug)"""
+        if self.debug >= 1 and not self.debug_files_cleaned:
+            debug_dir = JIRA_CONFIG['DEBUG_DIR']
+            os.makedirs(debug_dir, exist_ok=True)
+
+            delivered_file = f"{debug_dir}/{JIRA_CONFIG['DEBUG_DELIVERED_FILE']}"
+            carryover_file = f"{debug_dir}/{JIRA_CONFIG['DEBUG_CARRYOVER_FILE']}"
+
+            # Remove existing files if they exist
+            for file_path in [delivered_file, carryover_file]:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+            self.debug_files_cleaned = True
+
+    def append_debug_issue(self, issue_key: str, is_delivered: bool) -> None:
+        """Append issue key to appropriate debug file (level 1 debug)"""
+        if self.debug >= 1:
+            self.clean_debug_files()
+            debug_dir = JIRA_CONFIG['DEBUG_DIR']
+            filename = JIRA_CONFIG['DEBUG_DELIVERED_FILE'] if is_delivered else JIRA_CONFIG['DEBUG_CARRYOVER_FILE']
+            with open(f"{debug_dir}/{filename}", "a", encoding="utf-8") as f:
+                f.write(f"{issue_key}\n")
+
 
     async def jira_request(self, url: str, method: str = 'GET', data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Generic function to call JIRA APIs"""
@@ -506,6 +533,10 @@ class JiraTools:
             issue_info.delivered_in_sprint = classification.delivered_in_sprint
             issue_info.removed_before_midpoint = classification.removed_before_midpoint
             issue_info.valid = True
+
+            # Level 1 debug: Write to delivered/carryover files
+            if not classification.removed_before_midpoint:
+                self.append_debug_issue(iss["key"], classification.delivered_in_sprint)
 
         # Handle in-progress issues
         if classification.in_progress_days is not None:

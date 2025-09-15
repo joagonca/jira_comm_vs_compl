@@ -13,6 +13,8 @@ JIRA_CONFIG = {
     'SPRINT_CUSTOM_FIELD': "customfield_10000",
     'STORY_POINTS_CUSTOM_FIELD': "customfield_10006",
     'DEBUG_DIR': "debug",
+    'DEBUG_DELIVERED_FILE': "delivered.txt",
+    'DEBUG_CARRYOVER_FILE': "carryover.txt",
     'STATE_FILE': ".state",
     'DEFAULT_CONCURRENCY': 5,
     'REQUEST_TIMEOUT': 60,
