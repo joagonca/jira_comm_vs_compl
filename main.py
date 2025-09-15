@@ -93,7 +93,8 @@ async def main() -> None:
         print("No issues found.")
     else:
         state.print_stats()
-        State.clear_state()
+
+    State.clear_state()
 
 if __name__ == "__main__":
     asyncio.run(main())
