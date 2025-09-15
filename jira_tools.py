@@ -508,7 +508,10 @@ class JiraTools:
         classification = classifier.classify_issue(changelog_response)
         
         # Store issue in SQLite if it was resolved and came from API
-        if not from_database and classification.work_end is not None:
+        # Only store issues completed more than DB_STORAGE_BUFFER_DAYS ago to avoid storing issues that might be reopened
+        if (not from_database and
+            classification.work_end is not None and
+            classification.work_end < datetime.now().replace(tzinfo=None) - timedelta(days=JIRA_CONFIG['DB_STORAGE_BUFFER_DAYS'])):
             # Use end_sprint from classification for storage
             end_sprint = ""
             for sprint in parsed_sprints:
