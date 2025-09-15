@@ -20,7 +20,7 @@ async def main() -> None:
     jira_url = args.url
 
     jira_token = ""
-    with open(args.secret, encoding='utf-8') as f:
+    with open(args.auth, encoding='utf-8') as f:
         jira_token = f.readline().strip()
 
     teams_string = ""

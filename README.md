@@ -77,22 +77,22 @@ To create a JIRA API token:
 
 ```bash
 $ python main.py -h
-usage: jira_stats [-h] [--debug] [--proxy PROXY] -u URL -s SECRET -p PROJECT [-t TEAMS] [-d SKEW] [-i INTERVAL] [--jql JQL]
+usage: jira_stats [-h] [--debug] [-d] [--proxy PROXY] -u URL -a AUTH -p PROJECT [-t TEAMS] [-s SKEW] [-i INTERVAL] [--jql JQL]
 
 Get JIRA stats for teams
 
 options:
   -h, --help            show this help message and exit
-  --debug               Enable debug mode for API calls
+  --debug, -d           Debug level: -d for basic, -dd for verbose
   --proxy PROXY         If a proxy is to be used to reach out to JIRA
   -u, --url URL         JIRA API URL
-  -s, --secret SECRET   file with your JIRA API token (single line)
+  -a, --auth AUTH       file with your JIRA API token (single line)
   -p, --project PROJECT
                         JIRA Project key to target
   -t, --teams TEAMS     JIRA Teams to filter (either a file or a string)
-  -d, --skew SKEW       define how far back in months you want to check (since two months ago: -2)
+  -s, --skew SKEW       define how far back in months you want to check (since two months ago: -2)
   -i, --interval INTERVAL
-                        define how many months back to start the interval (interval start: -i 3 -d 4 means last 4 months starting 3 months ago)
+                        define how many months back to start the interval (interval start: -i 3 -s 4 means last 4 months starting 3 months ago)
   --jql JQL             JQL query to use (still supports the Skew and Teams argument)
 
 CFK ♥ 2025
@@ -102,12 +102,12 @@ CFK ♥ 2025
 
 **Get data for the last 2 months:**
 ```bash
-$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -s secret.txt -d 2
+$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -a secret.txt -s 2
 ```
 
 **Get data for the last 4 months starting 3 months ago (interval mode):**
 ```bash
-$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -s secret.txt -i 3 -d 4
+$ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -a secret.txt -i 3 -s 4
 ```
 
 ## Sample Output

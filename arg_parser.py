@@ -12,10 +12,11 @@ def create_argument_parser() -> argparse.ArgumentParser:
         epilog='CFK ♥ 2025'
     )
 
-    parser.add_argument('--debug',
+    parser.add_argument('--debug', '-d',
                         dest='debug',
-                        action="store_true",
-                        help='Enable debug mode for API calls')
+                        action='count',
+                        default=0,
+                        help='Debug level: -d for basic, -dd for verbose')
 
     parser.add_argument('--proxy',
                         dest='proxy',
@@ -26,8 +27,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
                         required=True,
                         help='JIRA API URL')
 
-    parser.add_argument('-s', '--secret',
-                        dest='secret',
+    parser.add_argument('-a', '--auth',
+                        dest='auth',
                         required=True,
                         help='file with your JIRA API token (single line)')
 
@@ -41,7 +42,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
                         default="",
                         help='JIRA Teams to filter (either a file or a string)')
 
-    parser.add_argument('-d', '--skew',
+    parser.add_argument('-s', '--skew',
                         dest='skew',
                         default=0,
                         type=int,
@@ -53,7 +54,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
                         default=0,
                         type=int,
                         required=False,
-                        help='define how many months back to start the interval (interval start: -i 3 -d 4 means last 4 months starting 3 months ago)')
+                        help='define how many months back to start the interval (interval start: -i 3 -s 4 means last 4 months starting 3 months ago)')
 
     parser.add_argument('--jql',
                         dest='jql',

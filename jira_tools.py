@@ -466,7 +466,7 @@ class JiraTools:
             changelog_response = await self.jira_request(changelog_url)
             from_database = False
 
-        if self.debug:
+        if self.debug >= 2:
             self.store_debug_info(iss["key"], changelog_response)
 
         sprints_raw = changelog_response["fields"].get(JIRA_CONFIG['SPRINT_CUSTOM_FIELD'], [])
