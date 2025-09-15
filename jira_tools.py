@@ -90,7 +90,7 @@ class IssueState:
                 self.work_start = event.timestamp
                 self.start_sprint = event.sprint or ""
             self.last_in_progress_start = event.timestamp
-            
+
             # Check if this transition happened in a closed sprint (for legacy compatibility)
             sprint_info = next((s for s in self.parsed_sprints if s.get('name') == event.sprint), None)
             if sprint_info and sprint_info.get('state') == 'CLOSED':
@@ -122,7 +122,7 @@ class IssueState:
     def get_final_classification(self, issue_type: str) -> IssueClassification:
         """Generate final classification based on accumulated state"""
         classification = IssueClassification()
-        
+
         # Basic timing metrics
         classification.work_start = self.work_start
         classification.work_end = self.work_end
@@ -133,7 +133,7 @@ class IssueState:
         # Calculate cycle time (matching original logic with weekend exclusion)
         if self.work_start is not None and self.work_end is not None:
             total_seconds = (self.work_end - self.work_start).total_seconds()
-            
+
             # Exclude weekends (exact logic as original calculate_cycle_time method)
             weekend_seconds = 0
             current_date = self.work_start
@@ -141,7 +141,7 @@ class IssueState:
                 if current_date.weekday() >= 5:  # Saturday (5) or Sunday (6)
                     weekend_seconds += 24 * 60 * 60
                 current_date += timedelta(days=1)
-            
+
             # Return result in seconds (matching original method)
             classification.cycle_time = max(0, total_seconds - weekend_seconds - self.pending_duration)
         else:
@@ -152,21 +152,21 @@ class IssueState:
             now = datetime.now().replace(tzinfo=None)
             in_progress_duration = (now - self.last_in_progress_start.replace(tzinfo=None)).total_seconds()
             classification.in_progress_days = in_progress_duration / (24 * 3600)
-            
+
             # Determine if issue is aged based on type threshold
             threshold = AGING_THRESHOLDS.get(issue_type, 14)
             classification.is_aged = classification.in_progress_days > threshold
 
         # Determine validity and exclusions
         has_sprint_work = self.start_sprint and self.was_resolved
-        
+
         if has_sprint_work:
             classification.valid = True
             classification.delivered_in_sprint = self.start_sprint == self.end_sprint
-            
+
             # Check for mid-sprint removal
             classification.removed_before_midpoint = self._was_removed_before_midpoint()
-            
+
             # Exclude if removed before midpoint
             if classification.removed_before_midpoint:
                 classification.should_exclude = True
@@ -177,22 +177,22 @@ class IssueState:
         """Check if issue was removed from starting sprint before midpoint"""
         if not self.start_sprint or self.start_sprint not in self.sprint_removals:
             return False
-            
+
         removal_time = self.sprint_removals[self.start_sprint]
         assignment_time = self.sprint_assignments.get(self.start_sprint)
-        
+
         # Only consider removals that happened after assignment
         if assignment_time is not None and removal_time <= assignment_time:
             return False
-            
+
         # Find sprint info and calculate midpoint
         sprint_info = next((s for s in self.parsed_sprints if s.get('name') == self.start_sprint), None)
         if not sprint_info or not sprint_info.get('startDate') or not sprint_info.get('endDate'):
             return False
-            
+
         sprint_duration = sprint_info['endDate'] - sprint_info['startDate']
         midpoint = sprint_info['startDate'] + (sprint_duration / 2)
-        
+
         return removal_time.replace(tzinfo=None) < midpoint
 
 class IssueClassifier:
@@ -204,10 +204,10 @@ class IssueClassifier:
         """Single method that determines all metrics for an issue"""
         # Extract issue type
         issue_type = changelog_response["fields"]["issuetype"]["name"]
-        
+
         # Extract timeline events
         events = self._extract_timeline_events(changelog_response)
-        
+
         # Process events through state machine
         state = IssueState(self.parsed_sprints)
         for event in events:
@@ -215,16 +215,16 @@ class IssueClassifier:
                 state.handle_status_change(event)
             elif isinstance(event, SprintEvent):
                 state.handle_sprint_change(event)
-        
+
         return state.get_final_classification(issue_type)
 
     def _extract_timeline_events(self, changelog_response: Dict[str, Any]) -> List[Event]:
         """Extract all relevant events in chronological order"""
         events = []
-        
+
         for history in changelog_response["changelog"]["histories"]:
             timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z").replace(tzinfo=None)
-            
+
             for item in history["items"]:
                 if item["field"] == "status":
                     # Match to sprint at this timestamp
@@ -235,17 +235,17 @@ class IssueClassifier:
                         to_status=item.get("toString", ""),
                         sprint=sprint
                     ))
-                    
+
                 elif item["field"] == JIRA_CONFIG['SPRINT_CUSTOM_FIELD']:
                     # Parse sprint changes
                     from_sprints = self._parse_sprint_list(item.get("fromString", ""))
                     to_sprints = self._parse_sprint_list(item.get("toString", ""))
-                    
+
                     # Generate add/remove events
                     for sprint in to_sprints:
                         if sprint not in from_sprints:
                             events.append(SprintEvent(timestamp, "added", sprint))
-                    
+
                     for sprint in from_sprints:
                         if sprint not in to_sprints:
                             events.append(SprintEvent(timestamp, "removed", sprint))
@@ -255,8 +255,8 @@ class IssueClassifier:
     def _get_sprint_at_time(self, timestamp: datetime) -> Optional[str]:
         """Get the active sprint at a given timestamp"""
         ts = timestamp.replace(tzinfo=None)
-        sprint = next((s for s in self.parsed_sprints 
-                      if s.get("startDate") and s.get("endDate") and 
+        sprint = next((s for s in self.parsed_sprints
+                      if s.get("startDate") and s.get("endDate") and
                       s["startDate"] <= ts <= s["endDate"]), None)
         return sprint["name"] if sprint else None
 
@@ -352,14 +352,14 @@ class JiraTools:
                         print("\r" + " " * os.get_terminal_size()[0], end="", flush=True)
                         print(f"\rRetrying after error {exc.response.status_code}...", end="", flush=True)
                         await asyncio.sleep(JIRA_CONFIG['RETRY_DELAY'])
-                
+
                 # If we've exhausted all retries without success, raise a more specific error
                 raise httpx.RequestError("All retry attempts failed")
 
     async def get_all_issues(self, project_key: str, teams: str, skew: int, interval: int, custom_jql: str) -> List[Dict[str, Any]]:
         """Get all issues for a specific project, partitioned by month"""
         issues_combo = []
-        
+
         # Determine the monthly partitions
         if skew > 0:
             if interval > 0:
@@ -373,25 +373,25 @@ class JiraTools:
         else:
             # No date filtering, use single query
             monthly_partitions = [None]
-        
+
         # Fetch issues for each monthly partition
         total_partitions = len(monthly_partitions)
         for i, month_filter in enumerate(monthly_partitions, 1):
             if total_partitions > 1:
                 month_display = month_filter['month_key'] if month_filter else 'all'
                 print(f"\rFetching issues for {month_display} [{i}/{total_partitions}]...", end="", flush=True)
-            
+
             month_issues = await self.get_issues_for_month(project_key, teams, custom_jql, month_filter)
             # Add month info to each issue for tracking
             for issue in month_issues:
                 issue['query_month'] = month_filter['month_key'] if month_filter else 'all'
             issues_combo.extend(month_issues)
-        
+
         # Clear the progress line after completion
         if total_partitions > 1:
             print("\r" + " " * 50, end="", flush=True)
             print("\rFetching issues completed.", flush=True)
-        
+
         return issues_combo
 
     def generate_monthly_partitions(self, start_month: int, end_month: int) -> List[Dict[str, Any]]:
@@ -402,7 +402,7 @@ class JiraTools:
             now = datetime.now()
             target_year = now.year
             target_month = now.month - month_offset
-            
+
             # Handle year rollover
             while target_month <= 0:
                 target_month += 12
@@ -410,7 +410,7 @@ class JiraTools:
             while target_month > 12:
                 target_month -= 12
                 target_year += 1
-                
+
             month_key = f"{target_year}-{target_month:02d}"
             partitions.append({
                 'month_key': month_key,
@@ -482,11 +482,11 @@ class JiraTools:
     async def check_issue_resolution_in_sprint(self, iss: Dict[str, Any]) -> IssueInfo:
         """Validates if issue was solved in the sprint using simplified classifier"""
         issue_info = IssueInfo(key=iss["key"], valid=False, query_month=iss.get('query_month'))
-        
+
         # Check if issue exists in SQLite first
         changelog_response = self.sqlite_manager.get_issue(iss["key"])
         from_database = True
-        
+
         if changelog_response is None:
             # Issue not in database, make API call
             changelog_url = f'{self.url}/issue/{iss["key"]}?expand=changelog'
@@ -503,10 +503,10 @@ class JiraTools:
         # Parse sprints and create classifier
         parsed_sprints = [self.parse_sprint_string(s) for s in sprints_raw if isinstance(s, str)]
         classifier = IssueClassifier(parsed_sprints)
-        
+
         # Get classification using simplified logic
         classification = classifier.classify_issue(changelog_response)
-        
+
         # Store issue in SQLite if it was resolved and came from API
         # Only store issues completed more than DB_STORAGE_BUFFER_DAYS ago to avoid storing issues that might be reopened
         if (not from_database and
@@ -520,12 +520,12 @@ class JiraTools:
                     end_sprint = sprint.get("name", "")
                     break
             self.sqlite_manager.store_issue(iss["key"], changelog_response, end_sprint)
-        
+
         # Get story points
         story_points = changelog_response["fields"].get(JIRA_CONFIG['STORY_POINTS_CUSTOM_FIELD'], 1.0)
         if story_points is None:
             story_points = 1.0
-            
+
         issue_type = changelog_response["fields"]["issuetype"]["name"]
 
         # Populate IssueInfo from classification

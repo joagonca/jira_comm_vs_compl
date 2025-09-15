@@ -8,7 +8,7 @@ from typing import Dict, List, Any, Optional, Union
 
 import numpy
 
-from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG, 
+from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG,
                    colorize_percentage, colorize_metric_value, colorize_issue_key, colorize_aging_status,
                    colorize_trend_arrow, colorize_rework_trend_arrow, colorize_rework_percentage)
 
@@ -24,7 +24,7 @@ class State:
         self.aging_items = []
         self.effort_per_type = {}
         self.command_args = command_args
-        
+
         # Monthly tracking for commitment vs delivery and rework
         self.monthly_metrics = {}  # key: month_key, value: {delivered, carryover, delivered_sp, carryover_sp, effort_per_type}
 
@@ -32,7 +32,7 @@ class State:
         """Add a delivered issue"""
         self.delivered += 1
         self.delivered_sp += story_points
-        
+
         if month_key:
             self.ensure_monthly_metrics(month_key)
             self.monthly_metrics[month_key]['delivered'] += 1
@@ -42,7 +42,7 @@ class State:
         """Add a carryover issue"""
         self.carryover += 1
         self.carryover_sp += story_points
-        
+
         if month_key:
             self.ensure_monthly_metrics(month_key)
             self.monthly_metrics[month_key]['carryover'] += 1
@@ -103,13 +103,13 @@ class State:
         """Check if current command arguments match the saved ones"""
         if self.command_args is None:
             return False
-        
+
         relevant_attrs = ['url', 'project', 'teams', 'skew', 'interval', 'jql']
-        
+
         for attr in relevant_attrs:
             if getattr(current_args, attr, None) != getattr(self.command_args, attr, None):
                 return False
-        
+
         return True
 
     def get_total_valid_issues(self) -> int:
@@ -186,35 +186,35 @@ class State:
         """Prints monthly commitment vs delivery breakdown"""
         print()
         print(colorize_metric_value("Monthly Commitment vs Delivery:", 'header'))
-        
+
         sorted_months = sorted(self.monthly_metrics.keys())
         ratios_by_issues = []
         ratios_by_sp = []
-        
+
         for month_key in sorted_months:
             metrics = self.monthly_metrics[month_key]
             total_issues = metrics['delivered'] + metrics['carryover']
             total_sp = metrics['delivered_sp'] + metrics['carryover_sp']
-            
+
             if total_issues > 0:
                 ratio_issue = metrics['delivered'] / total_issues
                 ratio_sp = (metrics['delivered_sp'] / total_sp) if total_sp > 0 else 0
-                
+
                 ratios_by_issues.append(ratio_issue)
                 ratios_by_sp.append(ratio_sp)
-                
+
                 print(f"  {colorize_metric_value(month_key, 'info')}:")
                 print(f"    Issues: {colorize_metric_value(total_issues, 'count')} - Ratio: {colorize_percentage(ratio_issue * 100)}")
                 print(f"    Story Points: {colorize_metric_value(total_sp, 'count')} - Ratio: {colorize_percentage(ratio_sp * 100)}")
-        
+
         # Print trend analysis
         if len(ratios_by_issues) >= 2:
             issue_trend = self.calculate_linear_trend(ratios_by_issues)
             sp_trend = self.calculate_linear_trend(ratios_by_sp)
-            
+
             issue_arrow = colorize_trend_arrow(issue_trend)
             sp_arrow = colorize_trend_arrow(sp_trend)
-            
+
             print()
             print(f"  Trend (Issues): {issue_arrow}")
             print(f"  Trend (Story Points): {sp_arrow}")
@@ -223,10 +223,10 @@ class State:
         """Calculate linear trend slope using numpy polyfit"""
         if len(values) < 2:
             return 0
-        
+
         x_values = numpy.arange(len(values))  # 0, 1, 2, ..., n-1
         y_values = numpy.array(values)
-        
+
         # Use numpy's polyfit for linear regression (degree=1)
         # Returns [slope, intercept]
         try:
@@ -240,38 +240,38 @@ class State:
         """Prints monthly rework ratio breakdown"""
         print()
         print(colorize_metric_value("Monthly Rework Ratios (fixing vs building new):", 'header'))
-        
+
         sorted_months = sorted(self.monthly_metrics.keys())
         rework_ratios = []
-        
+
         for month_key in sorted_months:
             metrics = self.monthly_metrics[month_key]
             defect_effort = metrics['effort_per_type'].get("Defect", 0) + metrics['effort_per_type'].get("Bug", 0)
             story_effort = metrics['effort_per_type'].get("Story", 0)
             total_effort = defect_effort + story_effort
-            
+
             if total_effort > 0:
                 rework_ratio = (defect_effort / total_effort) * 100
                 rework_ratios.append(rework_ratio)
                 print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_rework_percentage(rework_ratio)}")
             else:
                 print(f"  {colorize_metric_value(month_key, 'info')}: {colorize_metric_value('No data', 'warning')}")
-        
+
         # Print trend analysis for rework ratios
         if len(rework_ratios) >= 2:
             rework_trend = self.calculate_linear_trend(rework_ratios)
             rework_arrow = colorize_rework_trend_arrow(rework_trend)
-            
+
             print()
             print(f"  Trend: {rework_arrow}")
 
     def print_rework_ratio(self) -> None:
         """Prints rework ratio (fixing vs building new)"""
         defect_effort = self.effort_per_type.get("Defect", 0) + self.effort_per_type.get("Bug", 0)
-        
+
         story_effort = self.effort_per_type.get("Story", 0)
         total_effort = defect_effort + story_effort
-        
+
         if total_effort > 0:
             rework_ratio = (defect_effort / total_effort) * 100
             print(f"Rework Ratio (fixing vs. building new): {colorize_rework_percentage(rework_ratio)}")
@@ -287,23 +287,23 @@ class State:
 
         print()
         print(colorize_metric_value("Work Item Aging (items currently 'In Progress'):", 'header'))
-        
+
         aged_items = [item for item in self.aging_items if item['is_aged']]
         total_in_progress = len(self.aging_items)
-        
+
         if aged_items:
             aged_count = colorize_metric_value(len(aged_items), 'error') if aged_items else colorize_metric_value('0', 'success')
             total_count = colorize_metric_value(total_in_progress, 'count')
             print(f"  Total aged items: {aged_count} out of {total_count} in progress")
             print()
-            
+
             aged_by_type = {}
             for item in aged_items:
                 item_type = item['type']
                 if item_type not in aged_by_type:
                     aged_by_type[item_type] = []
                 aged_by_type[item_type].append(item)
-            
+
             for item_type, items in aged_by_type.items():
                 threshold = self.get_aging_threshold(item_type)
                 print(f"  {colorize_metric_value(item_type, 'info')} (threshold: {colorize_metric_value(threshold, 'count')} days):")

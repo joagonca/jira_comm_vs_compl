@@ -45,7 +45,7 @@ async def main() -> None:
     if state is None:
         try:
             issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
-        except Exception as e: # pylint: disable=broad-except
+        except Exception as e: # pylint: disable=broad-excep
             print(f"Error fetching issues from Jira: {e}")
             return
         state = State(issues, args)
@@ -60,10 +60,10 @@ async def main() -> None:
             issue_info = await routine
 
             # Process valid issues for delivered/carryover metrics
-            if (issue_info.valid and not issue_info.removed_before_midpoint and 
-                issue_info.story_points is not None and issue_info.issue_type is not None and 
+            if (issue_info.valid and not issue_info.removed_before_midpoint and
+                issue_info.story_points is not None and issue_info.issue_type is not None and
                 issue_info.key is not None):
-                
+
                 # Add to delivered/carryover metrics
                 if issue_info.delivered_in_sprint:
                     state.add_delivered(issue_info.story_points, issue_info.query_month)
@@ -75,9 +75,9 @@ async def main() -> None:
                     state.add_issue_cycle_time(issue_info.key, issue_info.issue_type, issue_info.cycle_time, issue_info.story_points, issue_info.query_month)
 
             # Process aging metrics for in-progress issues
-            if (issue_info.in_progress_days is not None and 
-                issue_info.issue_type is not None and 
-                issue_info.story_points is not None and 
+            if (issue_info.in_progress_days is not None and
+                issue_info.issue_type is not None and
+                issue_info.story_points is not None and
                 issue_info.key is not None):
                 state.add_aging_item(issue_info.key, issue_info.issue_type, issue_info.in_progress_days, issue_info.is_aged, issue_info.story_points)
 
