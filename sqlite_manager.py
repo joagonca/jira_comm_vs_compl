@@ -2,6 +2,7 @@
 
 import sqlite3
 import json
+import lz4.frame
 from typing import Dict, Any, Optional
 
 
@@ -25,6 +26,30 @@ class SQLiteManager:
             """)
             conn.commit()
 
+    def _compress_payload(self, api_payload: Dict[str, Any]) -> bytes:
+        """Compress API payload using LZ4.
+
+        Args:
+            api_payload: API response dict to compress
+
+        Returns:
+            Compressed payload as bytes
+        """
+        payload_json = json.dumps(api_payload)
+        return lz4.frame.compress(payload_json.encode('utf-8'))
+
+    def _decompress_payload(self, compressed_data: bytes) -> Dict[str, Any]:
+        """Decompress API payload using LZ4.
+
+        Args:
+            compressed_data: Compressed payload bytes
+
+        Returns:
+            Decompressed API payload dict
+        """
+        decompressed_json = lz4.frame.decompress(compressed_data).decode('utf-8')
+        return json.loads(decompressed_json)
+
     def store_issue(self, issue_key: str, api_payload: Dict[str, Any]) -> bool:
         """Store issue in database only if it has an end_sprint.
 
@@ -36,14 +61,14 @@ class SQLiteManager:
         Returns:
             True if stored, False if not stored (no end_sprint)
         """
-        payload_json = json.dumps(api_payload)
+        compressed_payload = self._compress_payload(api_payload)
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT OR REPLACE INTO issue_changelog (issue_key, api_payload)
                 VALUES (?, ?)
-            """, (issue_key, payload_json))
+            """, (issue_key, compressed_payload))
             conn.commit()
 
         return True
@@ -65,6 +90,6 @@ class SQLiteManager:
 
             result = cursor.fetchone()
             if result:
-                return json.loads(result[0])
+                return self._decompress_payload(result[0])
             return None
 
