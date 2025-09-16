@@ -3,7 +3,7 @@ JIRA tools
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from typing import Dict, List, Any, Optional, Union
@@ -149,8 +149,8 @@ class IssueState:
 
         # Calculate aging metrics for in-progress issues
         if self.current_status == "In Progress" and self.last_in_progress_start is not None:
-            now = datetime.now().replace(tzinfo=None)
-            in_progress_duration = (now - self.last_in_progress_start.replace(tzinfo=None)).total_seconds()
+            now = datetime.now(timezone.utc)
+            in_progress_duration = (now - self.last_in_progress_start).total_seconds()
             classification.in_progress_days = in_progress_duration / (24 * 3600)
 
             # Determine if issue is aged based on type threshold
@@ -193,7 +193,7 @@ class IssueState:
         sprint_duration = sprint_info['endDate'] - sprint_info['startDate']
         midpoint = sprint_info['startDate'] + (sprint_duration / 2)
 
-        return removal_time.replace(tzinfo=None) < midpoint
+        return removal_time < midpoint
 
 class IssueClassifier:
     """Centralized issue classification logic"""
@@ -223,7 +223,7 @@ class IssueClassifier:
         events = []
 
         for history in changelog_response["changelog"]["histories"]:
-            timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z").replace(tzinfo=None)
+            timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z")
 
             for item in history["items"]:
                 if item["field"] == "status":
@@ -254,7 +254,7 @@ class IssueClassifier:
 
     def _get_sprint_at_time(self, timestamp: datetime) -> Optional[str]:
         """Get the active sprint at a given timestamp"""
-        ts = timestamp.replace(tzinfo=None)
+        ts = timestamp
         sprint = next((s for s in self.parsed_sprints
                       if s.get("startDate") and s.get("endDate") and
                       s["startDate"] <= ts <= s["endDate"]), None)
@@ -399,7 +399,7 @@ class JiraTools:
         partitions = []
         for month_offset in range(start_month, end_month - 1, -1):
             # Calculate the year and month for this offset
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             target_year = now.year
             target_month = now.month - month_offset
 
@@ -472,9 +472,9 @@ class JiraTools:
             info['startDate'] = info['endDate'] = None
         else:
             if 'startDate' in info:
-                info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=None)
+                info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
             if 'endDate' in info:
-                info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=None)
+                info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
 
         return info
 
@@ -511,12 +511,12 @@ class JiraTools:
         # Only store issues completed more than DB_STORAGE_BUFFER_DAYS ago to avoid storing issues that might be reopened
         if (not from_database and
             classification.work_end is not None and
-            classification.work_end < datetime.now().replace(tzinfo=None) - timedelta(days=JIRA_CONFIG['DB_STORAGE_BUFFER_DAYS'])):
+            classification.work_end < datetime.now(timezone.utc) - timedelta(days=JIRA_CONFIG['DB_STORAGE_BUFFER_DAYS'])):
             # Use end_sprint from classification for storage
             end_sprint = ""
             for sprint in parsed_sprints:
                 if (sprint.get("startDate") and sprint.get("endDate") and
-                    sprint["startDate"] <= classification.work_end.replace(tzinfo=None) <= sprint["endDate"]):
+                    sprint["startDate"] <= classification.work_end <= sprint["endDate"]):
                     end_sprint = sprint.get("name", "")
                     break
             self.sqlite_manager.store_issue(iss["key"], changelog_response, end_sprint)
