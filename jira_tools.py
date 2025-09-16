@@ -182,7 +182,7 @@ class IssueState:
         assignment_time = self.sprint_assignments.get(self.start_sprint)
 
         # Only consider removals that happened after assignment
-        if assignment_time is not None and removal_time <= assignment_time:
+        if assignment_time is not None and removal_time.date() <= assignment_time.date():
             return False
 
         # Find sprint info and calculate midpoint
@@ -193,7 +193,7 @@ class IssueState:
         sprint_duration = sprint_info['endDate'] - sprint_info['startDate']
         midpoint = sprint_info['startDate'] + (sprint_duration / 2)
 
-        return removal_time < midpoint
+        return removal_time.date() < midpoint.date()
 
 class IssueClassifier:
     """Centralized issue classification logic"""
@@ -257,7 +257,7 @@ class IssueClassifier:
         ts = timestamp
         sprint = next((s for s in self.parsed_sprints
                       if s.get("startDate") and s.get("endDate") and
-                      s["startDate"] <= ts <= s["endDate"]), None)
+                      s["startDate"].date() <= ts.date() <= s["endDate"].date()), None)
         return sprint["name"] if sprint else None
 
     def _parse_sprint_list(self, sprint_string: str) -> List[str]:
@@ -516,7 +516,7 @@ class JiraTools:
             end_sprint = ""
             for sprint in parsed_sprints:
                 if (sprint.get("startDate") and sprint.get("endDate") and
-                    sprint["startDate"] <= classification.work_end <= sprint["endDate"]):
+                    sprint["startDate"].date() <= classification.work_end.date() <= sprint["endDate"].date()):
                     end_sprint = sprint.get("name", "")
                     break
             self.sqlite_manager.store_issue(iss["key"], changelog_response, end_sprint)
