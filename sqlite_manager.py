@@ -25,7 +25,7 @@ class SQLiteManager:
             """)
             conn.commit()
 
-    def store_issue(self, issue_key: str, api_payload: Dict[str, Any], end_sprint: str) -> bool:
+    def store_issue(self, issue_key: str, api_payload: Dict[str, Any]) -> bool:
         """Store issue in database only if it has an end_sprint.
 
         Args:
@@ -36,9 +36,6 @@ class SQLiteManager:
         Returns:
             True if stored, False if not stored (no end_sprint)
         """
-        if not end_sprint or end_sprint == "":
-            return False
-
         payload_json = json.dumps(api_payload)
 
         with sqlite3.connect(self.db_path) as conn:

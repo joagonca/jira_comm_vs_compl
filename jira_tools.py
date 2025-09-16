@@ -519,7 +519,9 @@ class JiraTools:
                     sprint["startDate"].date() <= classification.work_end.date() <= sprint["endDate"].date()):
                     end_sprint = sprint.get("name", "")
                     break
-            self.sqlite_manager.store_issue(iss["key"], changelog_response, end_sprint)
+
+            if end_sprint and end_sprint != "":
+                self.sqlite_manager.store_issue(iss["key"], changelog_response)
 
         # Get story points
         story_points = changelog_response["fields"].get(JIRA_CONFIG['STORY_POINTS_CUSTOM_FIELD'], 1.0)
