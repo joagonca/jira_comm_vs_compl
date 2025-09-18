@@ -8,20 +8,16 @@ import sys
 
 from tqdm.asyncio import tqdm
 
-from arg_parser import create_argument_parser
+from arg_parser import parse_args_interactive
 from jira_tools import JiraTools
 from state_manager import State
 
 async def main() -> None:
     """Main function"""
-    parser = create_argument_parser()
-    args = parser.parse_args()
+    args = parse_args_interactive()
 
     jira_url = args.url
-
-    jira_token = ""
-    with open(args.auth, encoding='utf-8') as f:
-        jira_token = f.readline().strip()
+    jira_token = args.jira_token
 
     teams_string = ""
     teams_as_file = Path(args.teams)
