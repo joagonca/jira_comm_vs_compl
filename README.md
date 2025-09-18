@@ -78,9 +78,13 @@ To create a JIRA API token:
 
 ## Usage
 
+The application now supports interactive prompting for missing arguments and automatic file detection for convenience.
+
+### Command Line Arguments
+
 ```bash
 $ python main.py -h
-usage: jira_stats [-h] [--debug] [-d] [--proxy PROXY] -u URL -a AUTH -p PROJECT [-t TEAMS] [-s SKEW] [-i INTERVAL] [--jql JQL]
+usage: jira_stats [-h] [--debug] [--proxy PROXY] [-u URL] [-a AUTH] -p PROJECT [-t TEAMS] [-s SKEW] [-i INTERVAL] [--jql JQL]
 
 Get JIRA stats for teams
 
@@ -101,6 +105,24 @@ options:
 CFK ♥ 2025
 ```
 
+### Interactive Mode & File Detection
+
+The application automatically detects configuration files and prompts for missing arguments:
+
+**Automatic File Detection:**
+- **`url.txt`**: If this file exists, the URL argument becomes optional and the URL is read from the file
+- **`token.txt`**: If this file exists and no `-a` argument is provided, this file is used automatically for authentication
+
+**Interactive Prompts:**
+- If required arguments are missing (and no default files exist), the application will prompt you interactively
+- Default values are shown in parentheses - press Enter to use them
+- Use Ctrl+C to cancel the operation
+
+**Priority Order:**
+1. Command-line arguments (highest priority)
+2. Default files (`url.txt`, `token.txt`)
+3. Interactive prompts with defaults (lowest priority)
+
 ### Examples
 
 **Get data for the last 2 months:**
@@ -118,26 +140,48 @@ $ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest
 The tool now provides enhanced monthly breakdowns with trend analysis:
 
 ```
-Monthly Commitment vs Delivery:
-  2024-07:
-    Issues: 25 - Ratio: 68.0%
-    Story Points: 45 - Ratio: 71.1%
-  2024-08:
-    Issues: 30 - Ratio: 76.7%
-    Story Points: 52 - Ratio: 78.8%
-  2024-09:
-    Issues: 28 - Ratio: 82.1%
-    Story Points: 48 - Ratio: 83.3%
+Valid issues: 30
+Ratio of Comm vs. Delv. (by issue count): 100.00%
+Ratio of Comm vs. Delv. (by story points): 100.00%
 
-  Trend (Issues): ↗
-  Trend (Story Points): ↗
+Monthly Commitment vs Delivery:
+  2025-07:
+    Issues: 16 - Ratio: 100.00%
+    Story Points: 52.0 - Ratio: 100.00%
+  2025-08:
+    Issues: 14 - Ratio: 100.00%
+    Story Points: 39.0 - Ratio: 100.00%
+
+  Trend (Issues): →
+  Trend (Story Points): →
 
 Monthly Rework Ratios (fixing vs building new):
-  2024-07: 25.3%
-  2024-08: 22.1%
-  2024-09: 18.7%
+  2025-07: 0.00%
+  2025-08: 0.00%
 
-  Trend: ↘
+  Trend: →
+
+Work Item Aging: No items currently in progress
+
+Average cycle time:
+Story (26): 6d, 11h22
+    Top 1% [PROJ-1186]: 8d, 20h20
+    Bottom 1% [PROJ-1416]: 2d, 12h11
+    Std. Deviation: 1d, 21h34
+
+Task (4): 3d, 00h53
+    Top 1% [PROJ-1451]: 8d, 02h37
+    Bottom 1% [PROJ-1462]: 0d, 05h45
+    Std. Deviation: 3d, 06h14
+
+Average cycle time by Story Points:
+1 SPs (5): 2d, 21h06 (SD: 2d, 22h23)
+2 SPs (4): 5d, 09h38 (SD: 1d, 12h32)
+3 SPs (15): 6d, 13h04 (SD: 1d, 19h37)
+5 SPs (5): 7d, 12h37 (SD: 0d, 15h15)
+8 SPs (1): 8d, 16h13 (SD: 0d, 00h00)
+
+Rework Ratio (fixing vs. building new): 0.00%
 ```
 
 **Trend Indicators:**
