@@ -17,10 +17,7 @@ async def main() -> None:
     args = parse_args_interactive()
 
     jira_url = args.url
-
-    jira_token = ""
-    with open(args.auth, encoding='utf-8') as f:
-        jira_token = f.readline().strip()
+    jira_token = args.jira_token
 
     teams_string = ""
     teams_as_file = Path(args.teams)

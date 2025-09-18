@@ -63,18 +63,32 @@
     pip install -r requirements.txt
     ```
 
-## Secret File Format
+## Configuration
 
-The secret file should contain your JIRA API token on a single line. For example:
+### Configuration File Format
+
+You can create a `config.txt` file in INI format to store your JIRA settings:
+
+```ini
+[jira]
+url = https://your-subdomain.atlassian.net/jira/rest/api/latest
+token = your_api_token_here
+```
+
+### Secret File Format (Alternative)
+
+Alternatively, you can use a separate file containing your JIRA API token on a single line:
 ```
 your_api_token
 ```
+
+### Creating a JIRA API Token
 
 To create a JIRA API token:
 1. Go to your Atlassian account settings: https://id.atlassian.com/manage-profile/security/api-tokens
 2. Click "Create API token"
 3. Give it a label and copy the generated token
-4. Save the token in your secret file
+4. Save the token in either `config.txt` or a separate auth file
 
 ## Usage
 
@@ -109,18 +123,19 @@ CFK ♥ 2025
 
 The application automatically detects configuration files and prompts for missing arguments:
 
-**Automatic File Detection:**
-- **`url.txt`**: If this file exists, the URL argument becomes optional and the URL is read from the file
-- **`token.txt`**: If this file exists and no `-a` argument is provided, this file is used automatically for authentication
+**Configuration File Support:**
+- **`config.txt`**: INI format configuration file that can contain URL and API token
+- If this file exists, the URL and authentication become optional via command line
+- Configuration file uses standard INI format with `[jira]` section
 
 **Interactive Prompts:**
-- If required arguments are missing (and no default files exist), the application will prompt you interactively
+- If required arguments are missing (and no configuration exists), the application will prompt you interactively
 - Default values are shown in parentheses - press Enter to use them
 - Use Ctrl+C to cancel the operation
 
 **Priority Order:**
 1. Command-line arguments (highest priority)
-2. Default files (`url.txt`, `token.txt`)
+2. Configuration file (`config.txt`)
 3. Interactive prompts with defaults (lowest priority)
 
 ### Examples

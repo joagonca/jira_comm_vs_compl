@@ -3,6 +3,7 @@ Argument parser
 """
 
 import argparse
+import configparser
 import sys
 from pathlib import Path
 
@@ -26,13 +27,36 @@ def prompt_for_value(arg_name: str, description: str, default_value: str | None 
         print("\nOperation cancelled by user.")
         sys.exit(1)
 
+
+def load_config():
+    """Load configuration from config.txt file if it exists"""
+    config_file = Path('config.txt')
+    if not config_file.is_file():
+        return {}
+
+    config = configparser.ConfigParser()
+    try:
+        config.read('config.txt')
+        # Return a dictionary with the configuration values
+        config_dict = {}
+        if config.has_section('jira'):
+            if config.has_option('jira', 'url'):
+                config_dict['url'] = config.get('jira', 'url')
+            if config.has_option('jira', 'token'):
+                config_dict['token'] = config.get('jira', 'token')
+        return config_dict
+    except (configparser.Error, OSError) as e:
+        print(f"Warning: Error reading config.txt: {e}")
+        return {}
+
+
+
 def parse_args_interactive():
     """Parse arguments with interactive prompting for missing required values"""
-    # Check for url.txt file and read it if it exists
-    url_from_file = None
-    if Path('url.txt').is_file():
-        with open('url.txt', encoding='utf-8') as f:
-            url_from_file = f.readline().strip()
+    # Load configuration from config.txt if it exists
+    config = load_config()
+    url_from_config = config.get('url')
+    token_from_config = config.get('token')
 
     # Create parser with conditional URL requirement
     parser = argparse.ArgumentParser(
@@ -53,7 +77,7 @@ def parse_args_interactive():
 
     parser.add_argument('-u', '--url',
                         dest='url',
-                        required=url_from_file is None,  # Only required if no url.txt
+                        required=url_from_config is None,  # Only required if no config url
                         help='JIRA API URL')
 
     parser.add_argument('-a', '--auth',
@@ -96,22 +120,28 @@ def parse_args_interactive():
 
     args = parser.parse_args()
 
-    # Set URL from file if it wasn't provided via command line
-    if not args.url and url_from_file:
-        args.url = url_from_file
+    # Set URL from config if it wasn't provided via command line
+    if not args.url and url_from_config:
+        args.url = url_from_config
 
-    # Handle auth file logic
+    # Handle auth logic and always set args.jira_token
     if not args.auth:
-        # Check if default token.txt exists
-        if Path('token.txt').is_file():
-            args.auth = 'token.txt'
+        # If we have a token from config, use it directly
+        if token_from_config:
+            args.jira_token = token_from_config
+            args.auth = None  # No file needed
         else:
-            # Default file doesn't exist, prompt user
+            # No auth source found, prompt user for file
             args.auth = prompt_for_value(
                 'auth',
                 '-a/--auth: File with your JIRA API token (single line)',
                 'token.txt'
             )
+
+    # If we have an auth file, read the token from it
+    if args.auth:
+        with open(args.auth, encoding='utf-8') as f:
+            args.jira_token = f.readline().strip()
 
     # Prompt for skew and interval if not provided via command line
     if not skew_provided:
