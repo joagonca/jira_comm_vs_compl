@@ -6,8 +6,35 @@ import argparse
 import sys
 from pathlib import Path
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    """Creates and configures an argument parser"""
+def prompt_for_value(arg_name: str, description: str, default_value: str | None = None) -> str:
+    """Prompt user for a missing argument value with optional default"""
+    if default_value is not None:
+        prompt = f"{description} ({default_value}): "
+    else:
+        prompt = f"{description}: "
+
+    try:
+        while True:
+            value = input(prompt).strip()
+            if not value and default_value is not None:
+                return default_value
+            if not value:
+                print(f"Error: {arg_name} is required and cannot be empty. Please try again.")
+                continue
+            return value
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+        sys.exit(1)
+
+def parse_args_interactive():
+    """Parse arguments with interactive prompting for missing required values"""
+    # Check for url.txt file and read it if it exists
+    url_from_file = None
+    if Path('url.txt').is_file():
+        with open('url.txt', encoding='utf-8') as f:
+            url_from_file = f.readline().strip()
+
+    # Create parser with conditional URL requirement
     parser = argparse.ArgumentParser(
         prog='jira_stats',
         description='Get JIRA stats for teams',
@@ -26,7 +53,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('-u', '--url',
                         dest='url',
-                        required=True,
+                        required=url_from_file is None,  # Only required if no url.txt
                         help='JIRA API URL')
 
     parser.add_argument('-a', '--auth',
@@ -63,39 +90,15 @@ def create_argument_parser() -> argparse.ArgumentParser:
                         default="",
                         help='JQL query to use (still supports the Skew and Teams argument)')
 
-    return parser
-
-
-def prompt_for_value(arg_name: str, description: str, default_value: str | None = None) -> str:
-    """Prompt user for a missing argument value with optional default"""
-    if default_value is not None:
-        prompt = f"{description} ({default_value}): "
-    else:
-        prompt = f"{description}: "
-
-    try:
-        while True:
-            value = input(prompt).strip()
-            if not value and default_value is not None:
-                return default_value
-            if not value:
-                print(f"Error: {arg_name} is required and cannot be empty. Please try again.")
-                continue
-            return value
-    except KeyboardInterrupt:
-        print("\nOperation cancelled by user.")
-        sys.exit(1)
-
-
-def parse_args_interactive():
-    """Parse arguments with interactive prompting for missing required values"""
-    parser = create_argument_parser()
-
     # Parse arguments but check if skew/interval were explicitly provided
     skew_provided = any(arg in sys.argv for arg in ['-s', '--skew'])
     interval_provided = any(arg in sys.argv for arg in ['-i', '--interval'])
 
     args = parser.parse_args()
+
+    # Set URL from file if it wasn't provided via command line
+    if not args.url and url_from_file:
+        args.url = url_from_file
 
     # Handle auth file logic
     if not args.auth:
