@@ -4,6 +4,7 @@ Argument parser
 
 import argparse
 import sys
+from pathlib import Path
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Creates and configures an argument parser"""
@@ -96,13 +97,18 @@ def parse_args_interactive():
 
     args = parser.parse_args()
 
-    # Prompt for optional arguments if not provided
+    # Handle auth file logic
     if not args.auth:
-        args.auth = prompt_for_value(
-            'auth',
-            '-a/--auth: File with your JIRA API token (single line)',
-            'token.txt'
-        )
+        # Check if default token.txt exists
+        if Path('token.txt').is_file():
+            args.auth = 'token.txt'
+        else:
+            # Default file doesn't exist, prompt user
+            args.auth = prompt_for_value(
+                'auth',
+                '-a/--auth: File with your JIRA API token (single line)',
+                'token.txt'
+            )
 
     # Prompt for skew and interval if not provided via command line
     if not skew_provided:
