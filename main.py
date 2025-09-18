@@ -8,14 +8,13 @@ import sys
 
 from tqdm.asyncio import tqdm
 
-from arg_parser import create_argument_parser
+from arg_parser import parse_args_interactive
 from jira_tools import JiraTools
 from state_manager import State
 
 async def main() -> None:
     """Main function"""
-    parser = create_argument_parser()
-    args = parser.parse_args()
+    args = parse_args_interactive()
 
     jira_url = args.url
 

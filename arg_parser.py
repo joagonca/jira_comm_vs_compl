@@ -3,6 +3,7 @@ Argument parser
 """
 
 import argparse
+import sys
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Creates and configures an argument parser"""
@@ -29,7 +30,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('-a', '--auth',
                         dest='auth',
-                        required=True,
+                        required=False,
                         help='file with your JIRA API token (single line)')
 
     parser.add_argument('-p', '--project',
@@ -62,3 +63,70 @@ def create_argument_parser() -> argparse.ArgumentParser:
                         help='JQL query to use (still supports the Skew and Teams argument)')
 
     return parser
+
+
+def prompt_for_value(arg_name: str, description: str, default_value: str | None = None) -> str:
+    """Prompt user for a missing argument value with optional default"""
+    if default_value is not None:
+        prompt = f"{description} ({default_value}): "
+    else:
+        prompt = f"{description}: "
+
+    try:
+        while True:
+            value = input(prompt).strip()
+            if not value and default_value is not None:
+                return default_value
+            if not value:
+                print(f"Error: {arg_name} is required and cannot be empty. Please try again.")
+                continue
+            return value
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+        sys.exit(1)
+
+
+def parse_args_interactive():
+    """Parse arguments with interactive prompting for missing required values"""
+    parser = create_argument_parser()
+
+    # Parse arguments but check if skew/interval were explicitly provided
+    skew_provided = any(arg in sys.argv for arg in ['-s', '--skew'])
+    interval_provided = any(arg in sys.argv for arg in ['-i', '--interval'])
+
+    args = parser.parse_args()
+
+    # Prompt for optional arguments if not provided
+    if not args.auth:
+        args.auth = prompt_for_value(
+            'auth',
+            '-a/--auth: File with your JIRA API token (single line)',
+            'token.txt'
+        )
+
+    # Prompt for skew and interval if not provided via command line
+    if not skew_provided:
+        skew_input = prompt_for_value(
+            'skew',
+            '-s/--skew: How far back in months you want to check (since N months ago)',
+            '0'
+        )
+        try:
+            args.skew = int(skew_input)
+        except ValueError:
+            print(f"Error: Invalid value for skew: {skew_input}. Using default 0.")
+            args.skew = 0
+
+    if not interval_provided:
+        interval_input = prompt_for_value(
+            'interval',
+            '-i/--interval: How many months back to start the interval',
+            '0'
+        )
+        try:
+            args.interval = int(interval_input)
+        except ValueError:
+            print(f"Error: Invalid value for interval: {interval_input}. Using default 0.")
+            args.interval = 0
+
+    return args
