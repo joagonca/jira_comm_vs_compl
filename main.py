@@ -9,7 +9,7 @@ import sys
 from tqdm.asyncio import tqdm
 
 from arg_parser import parse_args_interactive
-from jira_tools import JiraTools
+from jira import JiraTools
 from state_manager import State
 
 async def main() -> None:
