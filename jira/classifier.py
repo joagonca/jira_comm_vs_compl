@@ -172,7 +172,12 @@ class IssueClassifier:
         events = []
 
         for history in changelog_response["changelog"]["histories"]:
-            timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            if not history.get("created"):
+                continue
+            try:
+                timestamp = datetime.strptime(history["created"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            except (ValueError, TypeError):
+                continue
 
             for item in history["items"]:
                 if item["field"] == "status":

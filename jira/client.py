@@ -187,12 +187,14 @@ class JiraTools:
         if info['state'] == "FUTURE":
             info['startDate'] = info['endDate'] = None
         else:
-            if 'startDate' in info:
-                info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-            if 'endDate' in info:
-                info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-            if 'completeDate' in info:
-                info['completeDate'] = datetime.strptime(info['completeDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            for date_field in ['startDate', 'endDate', 'completeDate']:
+                if info.get(date_field):
+                    try:
+                        info[date_field] = datetime.strptime(info[date_field], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+                    except (ValueError, TypeError):
+                        info[date_field] = None
+                else:
+                    info[date_field] = None
 
         return info
 
