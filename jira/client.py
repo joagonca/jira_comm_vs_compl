@@ -93,7 +93,7 @@ class JiraTools:
         # Fetch issues for each monthly partition
         total_partitions = len(monthly_partitions)
         for i, month_filter in enumerate(monthly_partitions, 1):
-            if total_partitions > 1:
+            if total_partitions >= 1:
                 month_display = month_filter['month_key'] if month_filter else 'all'
                 print(f"\rFetching issues for {month_display} [{i}/{total_partitions}]...", end="", flush=True)
 
@@ -104,7 +104,7 @@ class JiraTools:
             issues_combo.extend(month_issues)
 
         # Clear the progress line after completion
-        if total_partitions > 1:
+        if total_partitions >= 1:
             print("\r" + " " * 50, end="", flush=True)
             print("\rFetching issues completed.", flush=True)
 
