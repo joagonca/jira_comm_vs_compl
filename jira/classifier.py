@@ -38,9 +38,11 @@ class IssueState:
             if sprint_info and sprint_info.get('state') == 'CLOSED':
                 self.was_resolved = True  # Treat work in closed sprint as resolved
                 # For closed sprint work, use the end date of the sprint as work_end if not already set
-                if self.work_end is None and sprint_info.get('endDate'):
+                if self.work_end is None and sprint_info.get('completeDate'):
+                    self.work_end = sprint_info['completeDate']
+                elif self.work_end is None and sprint_info.get('endDate'):
                     self.work_end = sprint_info['endDate']
-                    self.end_sprint = event.sprint or ""
+                self.end_sprint = event.sprint or ""
 
         elif event.to_status == "Resolved":
             self.work_end = event.timestamp
@@ -129,10 +131,14 @@ class IssueState:
 
         # Find sprint info and calculate midpoint
         sprint_info = next((s for s in self.parsed_sprints if s.get('name') == self.start_sprint), None)
-        if not sprint_info or not sprint_info.get('startDate') or not sprint_info.get('endDate'):
+        if not sprint_info or not sprint_info.get('startDate'):
             return False
 
-        sprint_duration = sprint_info['endDate'] - sprint_info['startDate']
+        end_date = sprint_info.get('completeDate') or sprint_info.get('endDate')
+        if not end_date:
+            return False
+
+        sprint_duration = end_date - sprint_info['startDate']
         midpoint = sprint_info['startDate'] + (sprint_duration / 2)
 
         return removal_time.date() < midpoint.date()
@@ -199,8 +205,8 @@ class IssueClassifier:
         """Get the active sprint at a given timestamp"""
         ts = timestamp
         sprint = next((s for s in self.parsed_sprints
-                      if s.get("startDate") and s.get("endDate") and
-                      s["startDate"].date() <= ts.date() <= s["endDate"].date()), None)
+                      if s.get("startDate") and (s.get("completeDate") or s.get("endDate")) and
+                      s["startDate"].date() <= ts.date() <= (s.get("completeDate") or s["endDate"]).date()), None)
         return sprint["name"] if sprint else None
 
     def _parse_sprint_list(self, sprint_string: str) -> List[str]:

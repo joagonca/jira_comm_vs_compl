@@ -191,6 +191,8 @@ class JiraTools:
                 info['startDate'] = datetime.strptime(info['startDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
             if 'endDate' in info:
                 info['endDate'] = datetime.strptime(info['endDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            if 'completeDate' in info:
+                info['completeDate'] = datetime.strptime(info['completeDate'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
 
         return info
 
@@ -230,8 +232,9 @@ class JiraTools:
             # Use end_sprint from classification for storage
             end_sprint = ""
             for sprint in parsed_sprints:
-                if (sprint.get("startDate") and sprint.get("endDate") and
-                    sprint["startDate"].date() <= classification.work_end.date() <= sprint["endDate"].date()):
+                end_date = sprint.get("completeDate") or sprint.get("endDate")
+                if (sprint.get("startDate") and end_date and
+                    sprint["startDate"].date() <= classification.work_end.date() <= end_date.date()):
                     end_sprint = sprint.get("name", "")
                     break
 
