@@ -12,7 +12,8 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
 from state_manager import State
-from utils import seconds_to_pretty, AGING_THRESHOLDS
+from utils import (seconds_to_pretty, AGING_THRESHOLDS, 
+                   PerformanceThreshold, ReworkThreshold, TrendThreshold, StatusLabel, TrendLabel)
 
 
 class ExcelExporter:
@@ -200,7 +201,7 @@ class ExcelExporter:
                 item['type'],
                 f"{item['days']:.1f}",
                 threshold,
-                "AGED" if item['is_aged'] else "OK"
+                StatusLabel.AGED if item['is_aged'] else StatusLabel.OK
             ])
         
         return self._write_data_table(ws, row, aging_data, apply_status_coloring=True)
@@ -325,50 +326,50 @@ class ExcelExporter:
                 
                 # Apply status coloring if enabled
                 if apply_status_coloring and row_idx > 0 and col_idx == len(row_data) - 1:
-                    if value == "Good":
+                    if value == StatusLabel.GOOD:
                         cell.fill = self.good_fill
-                    elif value == "Warning":
+                    elif value == StatusLabel.WARNING:
                         cell.fill = self.warning_fill
-                    elif value in ("Poor", "AGED"):
+                    elif value in (StatusLabel.POOR, StatusLabel.AGED):
                         cell.fill = self.bad_fill
         
         return start_row + len(data)
 
-    def _get_status(self, percentage: float) -> str:
+    def _get_status(self, percentage: float) -> StatusLabel:
         """Get status label based on percentage (for commitment/delivery)"""
-        if percentage >= 85:
-            return "Good"
-        elif percentage >= 75:
-            return "Warning"
+        if percentage >= PerformanceThreshold.GOOD:
+            return StatusLabel.GOOD
+        elif percentage >= PerformanceThreshold.WARNING:
+            return StatusLabel.WARNING
         else:
-            return "Poor"
+            return StatusLabel.POOR
 
-    def _get_rework_status(self, percentage: float) -> str:
+    def _get_rework_status(self, percentage: float) -> StatusLabel:
         """Get status label for rework percentage (inverted - lower is better)"""
-        if percentage >= 30:
-            return "Poor"
-        elif percentage >= 15:
-            return "Warning"
+        if percentage >= ReworkThreshold.POOR:
+            return StatusLabel.POOR
+        elif percentage >= ReworkThreshold.WARNING:
+            return StatusLabel.WARNING
         else:
-            return "Good"
+            return StatusLabel.GOOD
 
-    def _trend_to_text(self, slope: float, threshold: float = 0.01) -> str:
+    def _trend_to_text(self, slope: float, threshold: float = TrendThreshold.COMMITMENT_DELIVERY) -> str:
         """Convert trend slope to text description"""
         if slope > threshold:
-            return "Improving ↗"
+            return TrendLabel.IMPROVING.value
         elif slope < -threshold:
-            return "Declining ↘"
+            return TrendLabel.DECLINING.value
         else:
-            return "Stable →"
+            return TrendLabel.STABLE.value
 
-    def _trend_to_status(self, slope: float, threshold: float = 0.01) -> str:
+    def _trend_to_status(self, slope: float, threshold: float = TrendThreshold.COMMITMENT_DELIVERY) -> StatusLabel:
         """Convert trend slope to status for coloring"""
         if slope > threshold:
-            return "Good"
+            return StatusLabel.GOOD
         elif slope < -threshold:
-            return "Poor"
+            return StatusLabel.POOR
         else:
-            return "Warning"
+            return StatusLabel.WARNING
 
     def _autosize_columns(self, ws: Worksheet) -> None:
         """Auto-size all columns based on content"""

@@ -3,6 +3,7 @@ Random utilities and configuration
 """
 
 import math
+from enum import Enum, IntEnum
 from typing import Union
 from colorama import Fore, Style, init
 
@@ -30,6 +31,41 @@ AGING_THRESHOLDS = {
     "Task": 10
 }
 
+
+class PerformanceThreshold(IntEnum):
+    """Thresholds for commitment/delivery performance status"""
+    GOOD = 85
+    WARNING = 75
+
+
+class ReworkThreshold(IntEnum):
+    """Thresholds for rework ratio status (inverted - lower is better)"""
+    POOR = 30
+    WARNING = 15
+
+
+class TrendThreshold(float, Enum):
+    """Thresholds for trend analysis slopes"""
+    COMMITMENT_DELIVERY = 0.01
+    REWORK = 1.0
+
+
+class StatusLabel(Enum):
+    """Status labels for performance metrics"""
+    GOOD = "Good"
+    WARNING = "Warning"
+    POOR = "Poor"
+    AGED = "AGED"
+    OK = "OK"
+
+
+class TrendLabel(Enum):
+    """Trend direction labels"""
+    IMPROVING = "Improving ↗"
+    DECLINING = "Declining ↘"
+    STABLE = "Stable →"
+
+
 COLOR_THEMES = {
     'success': Fore.GREEN,
     'warning': Fore.YELLOW,
@@ -49,7 +85,7 @@ def seconds_to_pretty(seconds: Union[int, float]) -> str:
 
     return f"{days}d, {hours:02d}h{minutes:02d}"
 
-def colorize_percentage(percentage: Union[int, float], good_threshold: Union[int, float] = 85, warning_threshold: Union[int, float] = 75) -> str:
+def colorize_percentage(percentage: Union[int, float], good_threshold: Union[int, float] = PerformanceThreshold.GOOD, warning_threshold: Union[int, float] = PerformanceThreshold.WARNING) -> str:
     """Colorize percentage based on thresholds"""
     if percentage >= good_threshold:
         return f"{Fore.GREEN}{percentage:.2f}%{Style.RESET_ALL}"
@@ -61,9 +97,9 @@ def colorize_percentage(percentage: Union[int, float], good_threshold: Union[int
 def colorize_aging_status(is_aged: bool) -> str:
     """Colorize aging status indicator"""
     if is_aged:
-        return f"{Fore.RED}⚠ AGED{Style.RESET_ALL}"
+        return f"{Fore.RED}⚠ {StatusLabel.AGED.value}{Style.RESET_ALL}"
     else:
-        return f"{Fore.GREEN}✓ OK{Style.RESET_ALL}"
+        return f"{Fore.GREEN}✓ {StatusLabel.OK.value}{Style.RESET_ALL}"
 
 def colorize_metric_value(value: Union[str, int, float], metric_type: str = 'default') -> str:
     """Colorize metric values based on type"""
@@ -80,7 +116,7 @@ def colorize_issue_key(key: str) -> str:
     """Colorize issue key"""
     return f"{Fore.CYAN}{Style.BRIGHT}{key}{Style.RESET_ALL}"
 
-def colorize_trend_arrow(slope: Union[int, float], threshold: Union[int, float] = 0.01) -> str:
+def colorize_trend_arrow(slope: Union[int, float], threshold: Union[int, float] = TrendThreshold.COMMITMENT_DELIVERY) -> str:
     """Colorize trend arrow based on slope (for commitment/delivery trends)"""
     if slope > threshold:  # Significant upward trend (good)
         return f"{COLOR_THEMES['success']}↗{Style.RESET_ALL}"
@@ -89,7 +125,7 @@ def colorize_trend_arrow(slope: Union[int, float], threshold: Union[int, float] 
     else:  # Relatively flat
         return f"{COLOR_THEMES['info']}→{Style.RESET_ALL}"
 
-def colorize_rework_trend_arrow(slope: Union[int, float], threshold: Union[int, float] = 1.0) -> str:
+def colorize_rework_trend_arrow(slope: Union[int, float], threshold: Union[int, float] = TrendThreshold.REWORK) -> str:
     """Colorize rework trend arrow based on slope (inverted logic - lower rework is better)"""
     if slope > threshold:  # Significant upward trend in rework (bad)
         return f"{COLOR_THEMES['error']}↗{Style.RESET_ALL}"
@@ -98,7 +134,7 @@ def colorize_rework_trend_arrow(slope: Union[int, float], threshold: Union[int, 
     else:  # Relatively flat
         return f"{COLOR_THEMES['info']}→{Style.RESET_ALL}"
 
-def colorize_rework_percentage(percentage: Union[int, float], bad_threshold: Union[int, float] = 30, warning_threshold: Union[int, float] = 15) -> str:
+def colorize_rework_percentage(percentage: Union[int, float], bad_threshold: Union[int, float] = ReworkThreshold.POOR, warning_threshold: Union[int, float] = ReworkThreshold.WARNING) -> str:
     """Colorize rework percentage (inverted logic - lower rework is better)"""
     if percentage >= bad_threshold:  # High rework ratio (bad)
         return f"{Fore.RED}{percentage:.2f}%{Style.RESET_ALL}"
