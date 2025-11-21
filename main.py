@@ -9,6 +9,7 @@ import sys
 from tqdm.asyncio import tqdm
 
 from arg_parser import parse_args_interactive
+from excel_exporter import ExcelExporter
 from jira import JiraTools
 from state_manager import State
 
@@ -89,6 +90,14 @@ async def main() -> None:
         print("No issues found.")
     else:
         state.print_stats()
+        
+        if args.output:
+            try:
+                exporter = ExcelExporter(state, args.output)
+                output_file = exporter.export()
+                print(f"Excel file exported successfully: {output_file}")
+            except Exception as e: # pylint: disable=broad-except
+                print(f"Error exporting to Excel: {e}")
 
     State.clear_state()
 
