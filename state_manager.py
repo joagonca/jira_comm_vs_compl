@@ -14,7 +14,7 @@ from utils import (seconds_to_pretty, AGING_THRESHOLDS, JIRA_CONFIG,
 
 class State:
     """Class to store current state"""
-    def __init__(self, iss: List[Dict[str, Any]], command_args: Optional[Any] = None, team_names: Optional[Dict[str, str]] = None):
+    def __init__(self, iss: List[Dict[str, Any]], command_args: Optional[Any] = None):
         self.issues = iss
         self.delivered = self.carryover = 0
         self.delivered_sp = self.carryover_sp = 0
@@ -24,7 +24,6 @@ class State:
         self.aging_items = []
         self.effort_per_type = {}
         self.command_args = command_args
-        self.team_names = team_names or {}
 
         # Monthly tracking for commitment vs delivery and rework
         self.monthly_metrics = {}  # key: month_key, value: {delivered, carryover, delivered_sp, carryover_sp, effort_per_type}
@@ -120,18 +119,6 @@ class State:
     def get_total_sps(self) -> Union[int, float]:
         """Returns a total of SPs worked on"""
         return self.delivered_sp + self.carryover_sp
-
-    def get_team_display_name(self) -> str:
-        """Get formatted team name(s) for display"""
-        if not self.team_names:
-            return ""
-        
-        team_names_list = list(self.team_names.values())
-        if len(team_names_list) == 1:
-            return team_names_list[0]
-        elif len(team_names_list) > 1:
-            return ", ".join(team_names_list)
-        return ""
 
     def get_project_key(self) -> str:
         """Get project key from command args"""
