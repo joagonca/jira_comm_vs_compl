@@ -2,7 +2,7 @@
 Excel exporter for JIRA metrics
 """
 
-from datetime import datetime
+import os
 from typing import Optional, Tuple, Union, Sequence
 
 import numpy
@@ -19,16 +19,17 @@ from utils import (seconds_to_pretty, AGING_THRESHOLDS,
 class ExcelExporter:
     """Export JIRA metrics to Excel with multiple sheets"""
 
-    def __init__(self, state: State, output_path: Optional[str] = None):
+    def __init__(self, state: State, output_dir: Optional[str] = None):
         """
         Initialize Excel exporter
         
         Args:
             state: State object containing all metrics
-            output_path: Optional path for output file. If None, generates default name
+            output_dir: Optional directory path for output file. If None, uses current directory
         """
         self.state = state
-        self.output_path = output_path or self._generate_default_filename()
+        self.output_dir = output_dir or "."
+        self.output_path = self._generate_output_path()
         self.workbook = Workbook()
         
         # Remove default sheet
@@ -50,13 +51,21 @@ class ExcelExporter:
         self.warning_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
         self.bad_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
-    def _generate_default_filename(self) -> str:
-        """Generate default filename with project key, team name, and timestamp"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    def _generate_filename(self) -> str:
+        """Generate filename with project key, team name, and period"""
         project_key = self.state.get_project_key()
         team_name = self.state.get_team_display_name()
         
-        parts = ["jira_metrics"]
+        # Get period from monthly metrics
+        period = ""
+        if self.state.monthly_metrics:
+            sorted_months = sorted(self.state.monthly_metrics.keys())
+            if len(sorted_months) == 1:
+                period = sorted_months[0]
+            elif len(sorted_months) > 1:
+                period = f"{sorted_months[0]}_to_{sorted_months[-1]}"
+        
+        parts = []
         if project_key:
             parts.append(project_key)
         if team_name:
@@ -64,9 +73,18 @@ class ExcelExporter:
             safe_team_name = "".join(c for c in team_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
             safe_team_name = safe_team_name.replace(' ', '_')
             parts.append(safe_team_name)
-        parts.append(timestamp)
+        if period:
+            parts.append(period)
+        
+        if not parts:
+            parts.append("jira_metrics")
         
         return "_".join(parts) + ".xlsx"
+
+    def _generate_output_path(self) -> str:
+        """Generate full output path combining directory and filename"""
+        filename = self._generate_filename()
+        return os.path.join(self.output_dir, filename)
 
     def _generate_sheet_title(self, *parts: str) -> str:
         """Generate sheet title with project key, team name, and additional parts"""

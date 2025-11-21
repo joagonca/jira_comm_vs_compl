@@ -116,8 +116,10 @@ def parse_args_interactive():
 
     parser.add_argument('-o', '--output',
                         dest='output',
+                        nargs='?',
+                        const='.',
                         default=None,
-                        help='Excel file path for exporting metrics (optional)')
+                        help='Export metrics to Excel. Optionally specify output directory (default: current directory)')
 
     # Parse arguments but check if skew/interval were explicitly provided
     skew_provided = any(arg in sys.argv for arg in ['-s', '--skew'])
