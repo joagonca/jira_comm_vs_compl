@@ -10,6 +10,8 @@ from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import LineChart, BarChart, PieChart, Reference
+from openpyxl.chart.label import DataLabelList
 
 from state_manager import State
 from utils import (seconds_to_pretty, AGING_THRESHOLDS, 
@@ -97,6 +99,9 @@ class ExcelExporter:
             sorted_months = sorted(self.state.monthly_metrics.keys())
             for month_key in sorted_months:
                 self._create_monthly_sheet(month_key)
+        
+        if self.state.monthly_metrics and len(self.state.monthly_metrics) >= 2:
+            self._create_visualizations_sheet()
         
         self.workbook.save(self.output_path)
         return self.output_path
@@ -418,3 +423,205 @@ class ExcelExporter:
             
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[column_letter].width = adjusted_width
+
+    def _create_visualizations_sheet(self) -> None:
+        """Create visualizations sheet with charts for overall metrics"""
+        ws = self.workbook.create_sheet("Visualizations")
+        
+        title = self._generate_sheet_title("Visualizations")
+        ws.merge_cells('A1:P1')
+        cell = ws['A1']
+        cell.value = title
+        cell.font = Font(bold=True, size=14)
+        cell.alignment = Alignment(horizontal='center')
+        
+        sorted_months = sorted(self.state.monthly_metrics.keys())
+        self._create_commitment_delivery_trend_chart(ws, sorted_months, start_row=3)
+        self._create_rework_ratio_trend_chart(ws, sorted_months, start_row=20)
+        self._create_cycle_time_distribution_chart(ws, start_row=37)
+        self._create_monthly_stacked_bar_chart(ws, sorted_months, start_row=54)
+        self._create_story_points_pie_chart(ws, start_row=71)
+
+    def _create_commitment_delivery_trend_chart(self, ws: Worksheet, sorted_months: list, start_row: int) -> None:
+        """Create line chart for commitment vs delivery trend over time"""
+        ws[f'A{start_row}'] = "Commitment vs Delivery Trend"
+        ws[f'A{start_row}'].font = self.subheader_font
+        ws[f'A{start_row+1}'] = "Monthly delivery rates over time for issues and story points. Shows if the team is improving or declining."
+        ws[f'A{start_row+1}'].font = Font(italic=True, size=9)
+        
+        data_start = start_row + 3
+        ws[f'A{data_start}'] = "Month"
+        ws[f'B{data_start}'] = "Issues Delivery Rate (%)"
+        ws[f'C{data_start}'] = "Story Points Delivery Rate (%)"
+        
+        for i, month_key in enumerate(sorted_months, 1):
+            metrics = self.state.monthly_metrics[month_key]
+            total_issues = metrics['delivered'] + metrics['carryover']
+            total_sp = metrics['delivered_sp'] + metrics['carryover_sp']
+            
+            issue_rate = (metrics['delivered'] / total_issues * 100) if total_issues > 0 else 0
+            sp_rate = (metrics['delivered_sp'] / total_sp * 100) if total_sp > 0 else 0
+            
+            ws[f'A{data_start + i}'] = month_key
+            ws[f'B{data_start + i}'] = round(issue_rate, 2)
+            ws[f'C{data_start + i}'] = round(sp_rate, 2)
+        
+        chart = LineChart()
+        chart.title = "Commitment vs Delivery Trend"
+        chart.style = 10
+        chart.y_axis.title = "Delivery Rate (%)"
+        chart.x_axis.title = "Month"
+        chart.height = 10
+        chart.width = 20
+        
+        data = Reference(ws, min_col=2, min_row=data_start, max_row=data_start + len(sorted_months), max_col=3)
+        cats = Reference(ws, min_col=1, min_row=data_start + 1, max_row=data_start + len(sorted_months))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        
+        ws.add_chart(chart, f'E{start_row}')
+
+    def _create_rework_ratio_trend_chart(self, ws: Worksheet, sorted_months: list, start_row: int) -> None:
+        """Create line chart for rework ratio trend over time"""
+        ws[f'A{start_row}'] = "Rework Ratio Trend"
+        ws[f'A{start_row}'].font = self.subheader_font
+        ws[f'A{start_row+1}'] = "Monthly rework percentage over time. Helps identify if technical debt is increasing."
+        ws[f'A{start_row+1}'].font = Font(italic=True, size=9)
+        
+        data_start = start_row + 3
+        ws[f'A{data_start}'] = "Month"
+        ws[f'B{data_start}'] = "Rework Ratio (%)"
+        
+        for i, month_key in enumerate(sorted_months, 1):
+            metrics = self.state.monthly_metrics[month_key]
+            defect_effort = metrics['effort_per_type'].get("Defect", 0) + metrics['effort_per_type'].get("Bug", 0)
+            story_effort = metrics['effort_per_type'].get("Story", 0)
+            total_effort = defect_effort + story_effort
+            
+            rework_ratio = (defect_effort / total_effort * 100) if total_effort > 0 else 0
+            
+            ws[f'A{data_start + i}'] = month_key
+            ws[f'B{data_start + i}'] = round(rework_ratio, 2)
+        
+        chart = LineChart()
+        chart.title = "Rework Ratio Trend"
+        chart.style = 12
+        chart.y_axis.title = "Rework Ratio (%)"
+        chart.x_axis.title = "Month"
+        chart.height = 10
+        chart.width = 20
+        
+        data = Reference(ws, min_col=2, min_row=data_start, max_row=data_start + len(sorted_months))
+        cats = Reference(ws, min_col=1, min_row=data_start + 1, max_row=data_start + len(sorted_months))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        
+        ws.add_chart(chart, f'E{start_row}')
+
+    def _create_cycle_time_distribution_chart(self, ws: Worksheet, start_row: int) -> None:
+        """Create bar chart for cycle time distribution by issue type"""
+        ws[f'A{start_row}'] = "Cycle Time Distribution"
+        ws[f'A{start_row}'].font = self.subheader_font
+        ws[f'A{start_row+1}'] = "Average cycle times by issue type. Identifies outliers and typical delivery times."
+        ws[f'A{start_row+1}'].font = Font(italic=True, size=9)
+        
+        data_start = start_row + 3
+        ws[f'A{data_start}'] = "Issue Type"
+        ws[f'B{data_start}'] = "Average Cycle Time"
+        
+        row_idx = 1
+        for issue_type, items in self.state.cycle_time_per_type.items():
+            values = numpy.array([item[1] for item in items])
+            avg_seconds = float(numpy.mean(values))
+            
+            ws[f'A{data_start + row_idx}'] = issue_type
+            ws[f'B{data_start + row_idx}'] = seconds_to_pretty(avg_seconds)
+            row_idx += 1
+        
+        chart = BarChart()
+        chart.title = "Cycle Time Distribution"
+        chart.type = "col"
+        chart.style = 11
+        chart.y_axis.title = "Average Cycle Time"
+        chart.x_axis.title = "Issue Type"
+        chart.height = 10
+        chart.width = 20
+        
+        data = Reference(ws, min_col=2, min_row=data_start, max_row=data_start + len(self.state.cycle_time_per_type))
+        cats = Reference(ws, min_col=1, min_row=data_start + 1, max_row=data_start + len(self.state.cycle_time_per_type))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        
+        ws.add_chart(chart, f'E{start_row}')
+
+    def _create_monthly_stacked_bar_chart(self, ws: Worksheet, sorted_months: list, start_row: int) -> None:
+        """Create stacked bar chart for monthly commitment vs delivery"""
+        ws[f'A{start_row}'] = "Monthly Commitment vs Delivery"
+        ws[f'A{start_row}'].font = self.subheader_font
+        ws[f'A{start_row+1}'] = "Each month shows delivered (green) vs carryover (red) issues side-by-side. Very visual for stakeholders."
+        ws[f'A{start_row+1}'].font = Font(italic=True, size=9)
+        
+        data_start = start_row + 3
+        ws[f'A{data_start}'] = "Month"
+        ws[f'B{data_start}'] = "Delivered Issues"
+        ws[f'C{data_start}'] = "Carryover Issues"
+        
+        for i, month_key in enumerate(sorted_months, 1):
+            metrics = self.state.monthly_metrics[month_key]
+            ws[f'A{data_start + i}'] = month_key
+            ws[f'B{data_start + i}'] = metrics['delivered']
+            ws[f'C{data_start + i}'] = metrics['carryover']
+        
+        chart = BarChart()
+        chart.type = "col"
+        chart.grouping = "stacked"
+        chart.overlap = 100
+        chart.title = "Monthly Commitment vs Delivery"
+        chart.style = 13
+        chart.y_axis.title = "Number of Issues"
+        chart.x_axis.title = "Month"
+        chart.height = 10
+        chart.width = 20
+        
+        data = Reference(ws, min_col=2, min_row=data_start, max_row=data_start + len(sorted_months), max_col=3)
+        cats = Reference(ws, min_col=1, min_row=data_start + 1, max_row=data_start + len(sorted_months))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        
+        chart.series[0].graphicalProperties.solidFill = self.good_fill.start_color.rgb
+        chart.series[1].graphicalProperties.solidFill = self.bad_fill.start_color.rgb
+        
+        ws.add_chart(chart, f'E{start_row}')
+
+    def _create_story_points_pie_chart(self, ws: Worksheet, start_row: int) -> None:
+        """Create pie chart for story points by outcome"""
+        ws[f'A{start_row}'] = "Story Points by Outcome"
+        ws[f'A{start_row}'].font = self.subheader_font
+        ws[f'A{start_row+1}'] = "Delivered vs Carryover story points. Simple but effective overview."
+        ws[f'A{start_row+1}'].font = Font(italic=True, size=9)
+        
+        data_start = start_row + 3
+        ws[f'A{data_start}'] = "Outcome"
+        ws[f'B{data_start}'] = "Story Points"
+        
+        ws[f'A{data_start + 1}'] = "Delivered"
+        ws[f'B{data_start + 1}'] = self.state.delivered_sp
+        ws[f'A{data_start + 2}'] = "Carryover"
+        ws[f'B{data_start + 2}'] = self.state.carryover_sp
+        
+        chart = PieChart()
+        chart.title = "Story Points by Outcome"
+        chart.style = 10
+        chart.height = 10
+        chart.width = 20
+        
+        data = Reference(ws, min_col=2, min_row=data_start + 1, max_row=data_start + 2)
+        labels = Reference(ws, min_col=1, min_row=data_start + 1, max_row=data_start + 2)
+        chart.add_data(data)
+        chart.set_categories(labels)
+        
+        chart.dataLabels = DataLabelList()
+        chart.dataLabels.showPercent = True
+        chart.dataLabels.showVal = True
+        
+        ws.add_chart(chart, f'E{start_row}')
