@@ -3,7 +3,7 @@ Excel exporter for JIRA metrics
 """
 
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, Sequence
 
 import numpy
 from openpyxl import Workbook
@@ -77,7 +77,6 @@ class ExcelExporter:
         ws = self.workbook.create_sheet("Overall Summary", 0)
         row = self._write_title(ws, "JIRA Team Performance - Overall Summary")
         
-        # Commitment vs Delivery section
         row = self._write_commitment_delivery_section(
             ws, row,
             self.state.delivered, self.state.carryover,
@@ -86,22 +85,18 @@ class ExcelExporter:
         )
         row += 1
 
-        # Monthly trends section
         if self.state.monthly_metrics and len(self.state.monthly_metrics) >= 2:
             row = self._write_monthly_trends_section(ws, row)
             row += 1
         
-        # Rework Ratio section
         row = self._write_rework_ratio_section(ws, row, self.state.effort_per_type, "Rework Ratio (Overall)")
         row += 1
         
-        # Cycle Time sections
         row = self._write_cycle_time_by_type_section(ws, row)
         row += 1
         row = self._write_cycle_time_by_sp_section(ws, row)
         row += 1
         
-        # Work Item Aging section
         row = self._write_aging_section(ws, row)
         
         self._autosize_columns(ws)
@@ -140,7 +135,7 @@ class ExcelExporter:
         """Write cycle time by issue type section"""
         row = self._write_section_header(ws, row, "Average Cycle Time by Issue Type")
         
-        cycle_data = [["Issue Type", "Count", "Average", "Top 1%", "Bottom 1%", "Std Deviation"]]
+        cycle_data: list[list[Union[str, int]]] = [["Issue Type", "Count", "Average", "Top 1%", "Bottom 1%", "Std Deviation"]]
         
         for issue_type, items in self.state.cycle_time_per_type.items():
             values = numpy.array([item[1] for item in items])
@@ -159,7 +154,7 @@ class ExcelExporter:
         """Write cycle time by story points section"""
         row = self._write_section_header(ws, row, "Average Cycle Time by Story Points")
         
-        sp_data = [["Story Points", "Count", "Average", "Std Deviation"]]
+        sp_data: list[list[Union[str, int]]] = [["Story Points", "Count", "Average", "Std Deviation"]]
         sorted_sp_keys = sorted(self.state.cycle_time_per_sp.keys(), 
                                key=lambda x: float('inf') if x == -1 else x)
         
@@ -192,7 +187,7 @@ class ExcelExporter:
             ws[f'A{row}'].font = Font(italic=True)
             return row + 1
         
-        aging_data = [["Issue Key", "Type", "Days In Progress", "Threshold", "Status"]]
+        aging_data: list[list[Union[str, int, StatusLabel]]] = [["Issue Key", "Type", "Days In Progress", "Threshold", "Status"]]
         
         for item in sorted(aged_items, key=lambda x: x['days'], reverse=True):
             threshold = AGING_THRESHOLDS.get(item['type'], 14)
@@ -307,7 +302,9 @@ class ExcelExporter:
         cell.alignment = Alignment(horizontal='left')
         return row + 1
 
-    def _write_data_table(self, ws: Worksheet, start_row: int, data: list[list], apply_status_coloring: bool = False) -> int:
+    def _write_data_table(self, ws: Worksheet, start_row: int, 
+                         data: Sequence[Sequence[Union[str, int, float, StatusLabel]]], 
+                         apply_status_coloring: bool = False) -> int:
         """Write a data table with headers and return next available row"""
         for row_idx, row_data in enumerate(data):
             current_row = start_row + row_idx
@@ -319,12 +316,10 @@ class ExcelExporter:
                 cell.border = self.border
                 cell.alignment = Alignment(horizontal='left', vertical='center')
                 
-                # Header row styling
                 if row_idx == 0:
                     cell.font = self.header_font
                     cell.fill = self.header_fill
                 
-                # Apply status coloring if enabled
                 if apply_status_coloring and row_idx > 0 and col_idx == len(row_data) - 1:
                     if value == StatusLabel.GOOD:
                         cell.fill = self.good_fill
