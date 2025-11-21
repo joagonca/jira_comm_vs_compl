@@ -51,9 +51,36 @@ class ExcelExporter:
         self.bad_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
     def _generate_default_filename(self) -> str:
-        """Generate default filename with timestamp"""
+        """Generate default filename with project key, team name, and timestamp"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"jira_metrics_{timestamp}.xlsx"
+        project_key = self.state.get_project_key()
+        team_name = self.state.get_team_display_name()
+        
+        parts = ["jira_metrics"]
+        if project_key:
+            parts.append(project_key)
+        if team_name:
+            # Sanitize team name for filename
+            safe_team_name = "".join(c for c in team_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            safe_team_name = safe_team_name.replace(' ', '_')
+            parts.append(safe_team_name)
+        parts.append(timestamp)
+        
+        return "_".join(parts) + ".xlsx"
+
+    def _generate_sheet_title(self, *parts: str) -> str:
+        """Generate sheet title with project key, team name, and additional parts"""
+        project_key = self.state.get_project_key()
+        team_name = self.state.get_team_display_name()
+        
+        title_parts = []
+        if project_key:
+            title_parts.append(project_key)
+        if team_name:
+            title_parts.append(team_name)
+        title_parts.extend(parts)
+        
+        return " - ".join(title_parts) if title_parts else "JIRA Team Performance"
 
     def export(self) -> str:
         """
@@ -75,7 +102,9 @@ class ExcelExporter:
     def _create_overall_summary_sheet(self) -> None:
         """Create the overall summary sheet"""
         ws = self.workbook.create_sheet("Overall Summary", 0)
-        row = self._write_title(ws, "JIRA Team Performance - Overall Summary")
+        
+        title = self._generate_sheet_title("Overall Summary")
+        row = self._write_title(ws, title)
         
         row = self._write_commitment_delivery_section(
             ws, row,
@@ -206,7 +235,8 @@ class ExcelExporter:
         ws = self.workbook.create_sheet(month_key)
         metrics = self.state.monthly_metrics[month_key]
         
-        row = self._write_title(ws, f"Performance Metrics - {month_key}")
+        title = self._generate_sheet_title(month_key)
+        row = self._write_title(ws, title)
         row = self._write_commitment_delivery_section(
             ws, row,
             metrics['delivered'], metrics['carryover'],

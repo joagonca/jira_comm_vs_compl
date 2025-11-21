@@ -42,10 +42,11 @@ async def main() -> None:
     if state is None:
         try:
             issues = await jira.get_all_issues(args.project, teams_string, args.skew, args.interval, args.jql)
+            team_names = jira.extract_team_names_from_issues(issues)
         except Exception as e: # pylint: disable=broad-excep
             print(f"Error fetching issues from Jira: {e}")
             return
-        state = State(issues, args)
+        state = State(issues, args, team_names)
     else:
         # If state exists, get issues from state
         issues = state.issues

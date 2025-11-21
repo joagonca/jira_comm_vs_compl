@@ -72,6 +72,26 @@ class JiraTools:
                 # If we've exhausted all retries without success, raise a more specific error
                 raise httpx.RequestError("All retry attempts failed")
 
+    def extract_team_names_from_issues(self, issues: List[Dict[str, Any]]) -> Dict[str, str]:
+        """Extract team names from fetched issues"""
+        team_map = {}
+        
+        for issue in issues:
+            team_field = issue.get('fields', {}).get('Team')
+            
+            if isinstance(team_field, list):
+                for team in team_field:
+                    if isinstance(team, dict) and 'id' in team and 'name' in team:
+                        team_id = str(team['id'])
+                        if team_id not in team_map:
+                            team_map[team_id] = team['name']
+            elif isinstance(team_field, dict) and 'id' in team_field and 'name' in team_field:
+                team_id = str(team_field['id'])
+                if team_id not in team_map:
+                    team_map[team_id] = team_field['name']
+                
+        return team_map
+
     async def get_all_issues(self, project_key: str, teams: str, skew: int, interval: int, custom_jql: str) -> List[Dict[str, Any]]:
         """Get all issues for a specific project, partitioned by month"""
         issues_combo = []
@@ -165,7 +185,8 @@ class JiraTools:
                                         'maxResults': JIRA_CONFIG['MAX_RESULTS'],
                                         'startAt': start_at,
                                         'fields': [
-                                            'key'
+                                            'key',
+                                            'Team'
                                         ]
                                     })
 
