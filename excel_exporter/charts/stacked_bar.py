@@ -18,7 +18,6 @@ class MonthlyStackedBarChart(BaseChartCreator):
         
         data_start = self.write_chart_header(ws, start_row, title, description)
         
-        # Write data table
         ws[f'A{data_start}'] = "Month"
         ws[f'B{data_start}'] = "Delivered Issues"
         ws[f'C{data_start}'] = "Carryover Issues"
@@ -29,7 +28,6 @@ class MonthlyStackedBarChart(BaseChartCreator):
             ws[f'B{data_start + i}'] = metrics['delivered']
             ws[f'C{data_start + i}'] = metrics['carryover']
         
-        # Create stacked bar chart
         chart = BarChart()
         chart.type = "col"
         chart.grouping = "stacked"

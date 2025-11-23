@@ -165,8 +165,7 @@ class JiraTools:
                                         'maxResults': JIRA_CONFIG['MAX_RESULTS'],
                                         'startAt': start_at,
                                         'fields': [
-                                            'key',
-                                            'Team'
+                                            'key'
                                         ]
                                     })
 

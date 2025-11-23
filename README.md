@@ -164,8 +164,6 @@ The `-o` flag exports metrics to a professionally formatted Excel file with:
 
 **Filename format**: `{PROJECT_KEY}_{START_MONTH}_to_{END_MONTH}_metrics.xlsx`
 
-Example: `CDHX_2025-09_to_2025-11_metrics.xlsx`
-
 ## Sample Output
 
 The tool now provides enhanced monthly breakdowns with trend analysis:

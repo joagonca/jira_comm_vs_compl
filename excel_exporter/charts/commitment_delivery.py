@@ -18,7 +18,6 @@ class CommitmentDeliveryTrendChart(BaseChartCreator):
         
         data_start = self.write_chart_header(ws, start_row, title, description)
         
-        # Write data table
         ws[f'A{data_start}'] = "Month"
         ws[f'B{data_start}'] = "Issues Delivery Rate (%)"
         ws[f'C{data_start}'] = "Story Points Delivery Rate (%)"

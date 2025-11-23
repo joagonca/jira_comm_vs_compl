@@ -26,7 +26,7 @@ class CycleTimeDistributionChart(BaseChartCreator):
         for issue_type, items in cycle_time_per_type.items():
             values = numpy.array([item[1] for item in items])
             avg_seconds = float(numpy.mean(values))
-            avg_days = avg_seconds / 86400  # Convert to days for chart
+            avg_days = avg_seconds / (60 * 60 * 24)
             
             ws[f'A{data_start + row_idx}'] = issue_type
             ws[f'B{data_start + row_idx}'] = round(avg_days, 2)

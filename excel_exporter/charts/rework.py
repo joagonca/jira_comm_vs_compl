@@ -18,7 +18,6 @@ class ReworkRatioTrendChart(BaseChartCreator):
         
         data_start = self.write_chart_header(ws, start_row, title, description)
         
-        # Write data table
         ws[f'A{data_start}'] = "Month"
         ws[f'B{data_start}'] = "Rework Ratio (%)"
         

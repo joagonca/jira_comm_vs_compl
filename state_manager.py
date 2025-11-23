@@ -125,6 +125,12 @@ class State:
         if self.command_args and hasattr(self.command_args, 'project'):
             return self.command_args.project
         return ""
+    
+    def get_team_id(self) -> str:
+        """Get team ID from command args"""
+        if self.command_args and hasattr(self.command_args, 'teams'):
+            return self.command_args.teams
+        return ""
 
     def persist_state(self) -> None:
         """Persists state to disk"""

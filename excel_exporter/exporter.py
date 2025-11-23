@@ -46,8 +46,9 @@ class ExcelExporter:
         self.pie_chart = StoryPointsPieChart(self.styles)
 
     def _generate_filename(self) -> str:
-        """Generate filename with project key and period"""
+        """Generate filename with project key, team ID, and period"""
         project_key = self.state.get_project_key()
+        team_id = self.state.get_team_id()
         
         period = ""
         if self.state.monthly_metrics:
@@ -60,6 +61,9 @@ class ExcelExporter:
         parts = []
         if project_key:
             parts.append(project_key)
+        if team_id:
+            sanitized_team_id = team_id.replace(" ", "").replace(",", "_")
+            parts.append(f"Team_{sanitized_team_id}")
         if period:
             parts.append(period)
         
@@ -74,12 +78,15 @@ class ExcelExporter:
         return os.path.join(self.output_dir, filename)
 
     def _generate_sheet_title(self, *parts: str) -> str:
-        """Generate sheet title with project key and additional parts"""
+        """Generate sheet title with project key, team ID, and additional parts"""
         project_key = self.state.get_project_key()
+        team_id = self.state.get_team_id()
         
         title_parts = []
         if project_key:
             title_parts.append(project_key)
+        if team_id:
+            title_parts.append(f"Team {team_id}")
         title_parts.extend(parts)
         
         return " - ".join(title_parts) if title_parts else "JIRA Team Performance"
