@@ -120,6 +120,18 @@ class State:
         """Returns a total of SPs worked on"""
         return self.delivered_sp + self.carryover_sp
 
+    def get_project_key(self) -> str:
+        """Get project key from command args"""
+        if self.command_args and hasattr(self.command_args, 'project'):
+            return self.command_args.project
+        return ""
+    
+    def get_team_id(self) -> str:
+        """Get team ID from command args"""
+        if self.command_args and hasattr(self.command_args, 'teams'):
+            return self.command_args.teams
+        return ""
+
     def persist_state(self) -> None:
         """Persists state to disk"""
         with open(JIRA_CONFIG['STATE_FILE'], "wb") as fb:

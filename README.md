@@ -34,6 +34,7 @@
 *   **Progress Indicators:** Visual feedback during monthly query execution with format `[1/3]`.
 *   **Trend Analysis:** Mathematical linear regression analysis using numpy for commitment and rework trends.
 *   **Colorized Output:** Color-coded arrows and percentages for easy trend visualization.
+*   **Excel Export:** Professional Excel reports with formatted tables, status color coding, and interactive charts (5 chart types).
 *   **Custom JQL Queries:**  Support for providing custom JQL queries for advanced filtering and data retrieval.
 *   **SQLite Caching:** Automatically caches issue changelog data locally to avoid redundant API calls and improve performance.
 *   **Debug Levels:** Two-level debugging system for troubleshooting and analysis:
@@ -98,7 +99,7 @@ The application now supports interactive prompting for missing arguments and aut
 
 ```bash
 $ python main.py -h
-usage: jira_stats [-h] [--debug] [--proxy PROXY] [-u URL] [-a AUTH] -p PROJECT [-t TEAMS] [-s SKEW] [-i INTERVAL] [--jql JQL]
+usage: jira_stats [-h] [--debug] [--proxy PROXY] [-u URL] [-a AUTH] -p PROJECT [-t TEAMS] [-s SKEW] [-i INTERVAL] [--jql JQL] [-o OUTPUT]
 
 Get JIRA stats for teams
 
@@ -115,6 +116,7 @@ options:
   -i, --interval INTERVAL
                         define how many months back to start the interval (interval start: -i 3 -s 4 means last 4 months starting 3 months ago)
   --jql JQL             JQL query to use (still supports the Skew and Teams argument)
+  -o, --output OUTPUT   directory path for Excel export (optional, generates filename automatically)
 
 CFK ♥ 2025
 ```
@@ -149,6 +151,18 @@ $ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest
 ```bash
 $ python main.py -u "https://{your-subdomain}.atlassian.net/jira/rest/api/latest" -p PROJKEY -t "123, 456, 112" -a secret.txt -i 3 -s 4
 ```
+
+**Export to Excel:**
+```bash
+$ python main.py -p PROJKEY -t "123, 456" -a secret.txt -s 3 -o /path/to/output
+```
+
+The `-o` flag exports metrics to a professionally formatted Excel file with:
+- **Overall Summary Sheet**: All metrics with status color coding
+- **Monthly Breakdown Sheets**: Individual sheets for each month
+- **Visualizations Sheet**: interactive charts (requires 2+ months of data):
+
+**Filename format**: `{PROJECT_KEY}_{START_MONTH}_to_{END_MONTH}_metrics.xlsx`
 
 ## Sample Output
 

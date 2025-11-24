@@ -114,6 +114,13 @@ def parse_args_interactive():
                         default="",
                         help='JQL query to use (still supports the Skew and Teams argument)')
 
+    parser.add_argument('-o', '--output',
+                        dest='output',
+                        nargs='?',
+                        const='.',
+                        default=None,
+                        help='Export metrics to Excel. Optionally specify output directory (default: current directory)')
+
     # Parse arguments but check if skew/interval were explicitly provided
     skew_provided = any(arg in sys.argv for arg in ['-s', '--skew'])
     interval_provided = any(arg in sys.argv for arg in ['-i', '--interval'])
